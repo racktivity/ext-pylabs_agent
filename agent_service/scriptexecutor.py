@@ -5,7 +5,7 @@ from subprocess import Popen, PIPE
 from twisted.internet import reactor
 
 PYTHON_BIN = '/opt/qbase3/bin/python2.5'
-SCRIPT_WRAPPER_PY = '/opt/qbase3/apps/applicationServer/services/AgentService/scriptwrapper.py'
+SCRIPT_WRAPPER_PY = '/opt/qbase3/apps/applicationServer/services/agent_service/scriptwrapper.py'
 
 KILL_BIN = '/bin/kill'
 

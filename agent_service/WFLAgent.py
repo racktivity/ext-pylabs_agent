@@ -1,5 +1,5 @@
 from pymonkey import q, i
-from AgentService.agent import Agent
+from agent_service.agent import Agent
 
 class WFLAgent:
     

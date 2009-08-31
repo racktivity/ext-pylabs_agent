@@ -1,8 +1,8 @@
 from pymonkey import q, i
 
 import yaml
-from AgentService.xmppclient import XMPPClient
-from AgentService.scriptexecutor import ScriptExecutor
+from agent_service.xmppclient import XMPPClient
+from agent_service.scriptexecutor import ScriptExecutor
 
 class Agent:
     

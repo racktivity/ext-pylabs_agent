@@ -2,7 +2,7 @@ import sys
 sys.path.append('/opt/qbase3/apps/applicationServer/services/')
 
 from pymonkey import q
-from AgentService.logtarget import AgentLogTarget
+from agent_service.logtarget import AgentLogTarget
 
 import sys, traceback, time, yaml
 
