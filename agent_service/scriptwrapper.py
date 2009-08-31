@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/opt/qbase3/apps/applicationServer/services/')
+sys.path.append('/opt/qbase3/apps/applicationserver/services/')
 
 from pymonkey import q
 from agent_service.logtarget import AgentLogTarget
