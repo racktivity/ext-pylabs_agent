@@ -21,7 +21,8 @@ class WFLAgent:
     
     @q.manage.applicationserver.expose
     def log(self, pid, level, log_message):
-        return self.__agent.log(pid, level, log_message)
+        self.__agent.log(pid, level, log_message)
+        return True
     
     @q.manage.applicationserver.expose
     def listRunningProcesses(self):

@@ -55,7 +55,7 @@ class ScriptExecutor:
         for proc in self._processManager.listRunningProcesses():
             proc_error_code = proc.poll()
             if proc_error_code <> None:
-                (fromm, jobguid) = self._processManager.getJob(proc.pid)
+                (agentcontrollerguid, jobguid) = self._processManager.getJob(proc.pid)
                 output = proc.stdout.read()
                 
                 errorOutput = None
@@ -77,7 +77,7 @@ class ScriptExecutor:
                                 errorOutput = "WRAPPER CAUGHT EXCEPTION IN SCRIPT: \n" + output_object['errormessage']
                             else:
                                 params = output_object['params']
-                                self.scriptDoneCallback and self.scriptDoneCallback(fromm, jobguid, params)
+                                self.scriptDoneCallback and self.scriptDoneCallback(agentcontrollerguid, jobguid, params)
 
                 if errorOutput <> None:
                     self.scriptDiedCallback and self.scriptDiedCallback(fromm, jobguid, proc_error_code, errorOutput)

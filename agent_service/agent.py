@@ -66,9 +66,8 @@ class Agent:
         if job == None:
             q.logger.log("[AGENT] Agent '" + self.agentguid + "' lost log info because no job was found for this pid " + str(pid), 4)
         else:
-            (fromm, jobguid) = job
-            self.xmppclient.sendMessage(fromm, 'agent_log', jobguid, yaml.dump({'level':level, 'message':log_message}))
-        return 'logged'
+            (agentcontrollerguid, jobguid) = job
+            self.xmppclient.sendMessage(agentcontrollerguid, 'agent_log', jobguid, yaml.dump({'level':level, 'message':log_message}))
     
     def listRunningProcesses(self):
         return str(map(lambda x: x.pid, self.scriptexecutor._processManager.listRunningProcesses()))

@@ -8,6 +8,7 @@ class AgentLogTarget(LogTarget):
         self.serverPort = serverPort
         self.maxVerbosityLevel = maxVerbosityLevel
         self.connection = xmlrpclib.ServerProxy('http://%s:%s'%(self.serverIp, self.serverPort))
+        self.pid = os.getpid()
 
     def __str__(self):
         return "AgentControllerLogTarget logging to %s:%s"%(self.serverIp, self.serverPort)
@@ -16,4 +17,4 @@ class AgentLogTarget(LogTarget):
         return str(self)
 
     def log(self, record):
-        self.connection.agent_service.log(os.getpid(), record.verbosityLevel, record.msg)
+        self.connection.agent_service.log(self.pid, record.verbosityLevel, record.msg)
