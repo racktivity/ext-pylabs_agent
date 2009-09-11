@@ -80,7 +80,7 @@ class ScriptExecutor:
                                 self.scriptDoneCallback and self.scriptDoneCallback(agentcontrollerguid, jobguid, params)
 
                 if errorOutput <> None:
-                    self.scriptDiedCallback and self.scriptDiedCallback(fromm, jobguid, proc_error_code, errorOutput)
+                    self.scriptDiedCallback and self.scriptDiedCallback(agentcontrollerguid, jobguid, proc_error_code, errorOutput)
 
                 self._processManager.processStopped(proc)
                 reactor.callLater(2, self._processManager.removeProcess, proc) #Keep it alive for 2 seconds in case logging comes late.
