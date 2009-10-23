@@ -1,11 +1,11 @@
 import sys
-
 from pymonkey.InitBaseCore import q,i
 
 sys.path.append(q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver','services'))
 from agent_service.logtarget import AgentLogTarget
 
-import sys, traceback, time, yaml
+import traceback, time, yaml
+import base64
 
 # Read yamled version of the script and the params from stdin
 yaml_input = sys.stdin.read()
@@ -13,14 +13,17 @@ input = yaml.load(yaml_input)
 script = input['script']
 params = input['params']
 
+script = base64.decodestring(script)
 q.logger.addLogTarget(AgentLogTarget())
 errormessage = None
 try:
     # Run the script using the params
     code = compile(script,'<string>','exec')
     local_ns = {'params':params, 'q':q, 'i':i}
-    global_ns = {}
+    global_ns = local_ns
+
     exec(code, global_ns, local_ns)
+
 except:
     errormessage = traceback.format_exc()
 
