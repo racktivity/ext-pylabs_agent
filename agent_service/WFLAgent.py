@@ -28,4 +28,8 @@ class WFLAgent:
 
     @q.manage.applicationserver.expose
     def listRunningProcesses(self):
-        return self.__agent.listRunnlistRunningProcesses()
+        return self.__agent.listRunningProcesses()
+    
+    @q.manage.applicationserver.expose
+    def get_agent_id(self):
+        return self.__agent.agentguid
