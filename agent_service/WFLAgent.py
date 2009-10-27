@@ -2,10 +2,6 @@ from pymonkey import q, i
 from agent_service.agent import Agent
 import base64
 
-def getInterval():
-    config = i.config.agent.getConfig('main')
-    return int(config['cron_interval'])
-    
 class AgentConfig:
     def __init__(self):
         try:
