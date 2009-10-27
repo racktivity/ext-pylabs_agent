@@ -2,24 +2,50 @@ from pymonkey import q, i
 from agent_service.agent import Agent
 import base64
 
-class WFLAgent:
-
+def getInterval():
+    config = i.config.agent.getConfig('main')
+    return int(config['cron_interval'])
+    
+class AgentConfig:
     def __init__(self):
         try:
-            config = i.config.agent.getConfig('main')
+            self.configure = i.config.agent.getConfig('main')
         except KeyError:
             q.logger.log("Agent failed to find the 'main' configuration: not starting.", 1)
             raise
+        
+        self.interval = int(self.configure['cron_interval'])
+        self.agentguid = self.configure['agentguid']
+        self.xmppserver = self.configure['xmppserver']
+        self.password = self.configure['password']
+        self.agentcontrollerguid = self.configure['agentcontrollerguid']
+        self.subscribe = self.configure['subscribed'] if 'subscribed' in self.configure else None
+        
+config = AgentConfig()
+        
+class WFLAgent:
+    def __init__(self, path=None):
+        if not path:
+            path = q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver', 'services', 'agent_service', 'tasklets')
+            
+        self.taskletEngine = q.getTaskletEngine(path)
+        
+        if config.subscribe:
+            self.__agent = Agent(config.agentguid, config.xmppserver, config.password, config.agentcontrollerguid)
+        
         else:
-            if 'subscribed' in config:
-                self.__agent = Agent(config['agentguid'], config['xmppserver'], config['password'], config['agentcontrollerguid'])
-            else:
-                def _onSubscribed():
-                    config['subscribed'] = True
-                    i.config.agent.configure('main', config)
+            def _onSubscribed():
+                config.configure['subscribed'] = True
+                i.config.agent.configure('main', config.configure)
 
-                self.__agent = Agent(config['agentguid'], config['xmppserver'], config['password'], config['agentcontrollerguid'], _onSubscribed)
-
+            self.__agent = Agent(config.agentguid, config.xmppserver, config.password, config.agentcontrollerguid, _onSubscribed)
+        
+    @q.manage.applicationserver.cronjob(config.interval)        
+    def run_scheduled(self):
+        params = dict()
+        params['agentguid'] = self.__agent.agentguid
+        self.taskletEngine.execute(params, tags = ('agent', 'schedule'))
+        
     @q.manage.applicationserver.expose
     def log(self, pid, level, log_message):
         log_message = base64.decodestring(log_message)
