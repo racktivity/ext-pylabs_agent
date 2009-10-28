@@ -15,6 +15,7 @@ params = input['params']
 
 script = base64.decodestring(script)
 q.logger.addLogTarget(AgentLogTarget())
+
 errormessage = None
 try:
     # Run the script using the params
