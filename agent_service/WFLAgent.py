@@ -16,6 +16,7 @@ class AgentConfig:
         self.password = self.configure['password']
         self.agentcontrollerguid = self.configure['agentcontrollerguid']
         self.subscribe = self.configure['subscribed'] if 'subscribed' in self.configure else None
+        self.cronEnabled = self.configure['enable_cron'] == 'True' if 'enable_cron' in self.configure else True
 
 config = AgentConfig()
 
@@ -37,11 +38,13 @@ class WFLAgent:
 
             self.__agent = Agent(config.agentguid, config.xmppserver, config.password, config.agentcontrollerguid, _onSubscribed)
 
-    @q.manage.applicationserver.cronjob(config.interval)
-    def run_scheduled(self):
-        params = dict()
-        params['agentguid'] = self.__agent.agentguid
-        self.taskletEngine.execute(params, tags = ('agent', 'schedule'))
+
+    if config.cronEnabled:
+        @q.manage.applicationserver.cronjob(config.interval)
+        def run_scheduled(self):
+            params = dict()
+            params['agentguid'] = self.__agent.agentguid
+            self.taskletEngine.execute(params, tags = ('agent', 'schedule'))
 
     @q.manage.applicationserver.expose
     def log(self, pid, level, log_message):

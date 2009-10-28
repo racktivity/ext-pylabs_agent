@@ -17,5 +17,7 @@ class AgentConfigItem(ConfigManagementItem):
         self.dialogAskString('agentcontrollerguid', 'The guid of the agentcontroller', 'agentcontroller')
         if not 'cron_interval' in self.params: self.params['cron_interval'] = 60
         self.dialogAskInteger('cron_interval', 'The time between cron executes', 60)
+        if not 'enable_cron' in self.params: self.params['enable_cron'] = True
+        self.dialogAskYesNo('enable_cron', 'Enable Cron Tasklets Execution')
 
 AgentConfig = ItemGroupClass(AgentConfigItem)
