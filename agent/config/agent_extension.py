@@ -15,6 +15,7 @@ class AgentConfigItem(ConfigManagementItem):
         self.dialogAskString('xmppserver', 'The dns-address of the xmpp server', 'dmachine.office.aserver.com')
         self.dialogAskPassword('password', 'The password for the agent on the xmpp server', 'test')
         self.dialogAskString('agentcontrollerguid', 'The guid of the agentcontroller', 'agentcontroller')
-	self.dialogAskInteger('cron_interval', 'The time between cron executes', 60)
+        if not 'cron_interval' in self.params: self.params['cron_interval'] = 60
+        self.dialogAskInteger('cron_interval', 'The time between cron executes', 60)
 
 AgentConfig = ItemGroupClass(AgentConfigItem)
