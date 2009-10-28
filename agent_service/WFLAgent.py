@@ -10,7 +10,7 @@ class AgentConfig:
             q.logger.log("Agent failed to find the 'main' configuration: not starting.", 1)
             raise
 
-        self.interval = int(self.configure['cron_interval'])
+        self.interval = int(self.configure['cron_interval']) if 'cron_interval' in self.configure else 10
         self.agentguid = self.configure['agentguid']
         self.xmppserver = self.configure['xmppserver']
         self.password = self.configure['password']
