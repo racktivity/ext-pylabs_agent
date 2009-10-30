@@ -2,7 +2,6 @@ import unittest
 import base64
 import xmlrpclib
 from pymonkey.InitBase import q,i
-from pymonkey.qpackages.client.QPackageConfigure import QPackageConfigure
 
 class TestSequenceFunctions(unittest.TestCase):
     def setUp(self):
