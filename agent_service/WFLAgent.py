@@ -5,18 +5,30 @@ import base64
 class AgentConfig:
     def __init__(self):
         try:
-            self.configure = i.config.agent.getConfig('main')
+            config = i.config.agent.getConfig('main')
         except KeyError:
             q.logger.log("Agent failed to find the 'main' configuration: not starting.", 1)
             raise
 
-        self.interval = int(self.configure['cron_interval']) if 'cron_interval' in self.configure else 10
-        self.agentguid = self.configure['agentguid']
-        self.xmppserver = self.configure['xmppserver']
-        self.password = self.configure['password']
-        self.agentcontrollerguid = self.configure['agentcontrollerguid']
-        self.subscribe = self.configure['subscribed'] if 'subscribed' in self.configure else None
-        self.cronEnabled = self.configure['enable_cron'] == 'True' if 'enable_cron' in self.configure else True
+        self.interval = int(config['cron_interval']) if 'cron_interval' in config else 10
+        self.agentguid = config['agentguid']
+        self.xmppserver = config['xmppserver']
+        self.password = config['password']
+        self.agentcontrollerguid = config['agentcontrollerguid']
+        self.subscribed = config['subscribed'] if 'subscribed' in config else None
+        self.cronEnabled = config['enable_cron'] == 'True' if 'enable_cron' in config else True
+
+    def updateConfig(self):
+        config = dict()
+        config['cron_interval'] = self.interval
+        config['agentguid'] = self.agentguid
+        config['xmppserver'] = self.xmppserver
+        config['password'] = self.password
+        config['agentcontrollerguid'] = self.agentcontrollerguid
+        config['subscribed'] = self.subscribed
+        config['enable_cron'] = self.cronEnabled
+        i.config.agent.configure('main', config)
+
 
 config = AgentConfig()
 
@@ -28,15 +40,11 @@ class WFLAgent:
         if not q.system.fs.exists(path):q.system.fs.createDir(path)
         self.taskletEngine = q.getTaskletEngine(path)
 
-        if config.subscribe:
-            self.__agent = Agent(config.agentguid, config.xmppserver, config.password, config.agentcontrollerguid)
+        def _onSubscribed():
+            config.subscribed = True
+            config.updateConfig()
 
-        else:
-            def _onSubscribed():
-                config.configure['subscribed'] = True
-                i.config.agent.configure('main', config.configure)
-
-            self.__agent = Agent(config.agentguid, config.xmppserver, config.password, config.agentcontrollerguid, _onSubscribed)
+        self.__agent = Agent(config.agentguid, config.xmppserver, config.password, config.agentcontrollerguid, _onSubscribed)
 
 
     if config.cronEnabled:
