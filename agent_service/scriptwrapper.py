@@ -7,6 +7,10 @@ from agent_service.logtarget import AgentLogTarget
 import traceback, time, yaml
 import base64
 
+##temporary fix SSOBF-217
+import os
+os.umask(022)
+#########################
 # Read yamled version of the script and the params from stdin
 yaml_input = sys.stdin.read()
 input = yaml.load(yaml_input)
