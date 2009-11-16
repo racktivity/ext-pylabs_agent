@@ -1,22 +1,30 @@
 from pymonkey import q, i
 from agent_service.agent import Agent
 import base64
+import binascii
 
 class AgentConfig:
     def __init__(self):
+        """
+        Initialize configuration
+        """
         add = False
         if 'main' in i.config.agent.list():
             config = i.config.agent.getConfig('main')
         else:
             add = True
             con = i.config.cloudApiConnection.find('main')
-            config = con.machine.registerAgent(self._getMacaddress())['result']
+            config = con.machine.registerAgent(self._getMacaddress(con))['result']
 
         self._setConfig(config)
         if add:i.config.agent.add('main', self._getConfig())
 
 
     def _setConfig(self, config):
+        """
+        Set properties based on config dict
+        @param config: config dict
+        """
         self.interval = int(config['cron_interval']) if 'cron_interval' in config else 10
         self.agentguid = config['agentguid']
         self.xmppserver = config['xmppserver']
@@ -25,11 +33,18 @@ class AgentConfig:
         self.subscribed = config['subscribed'] if 'subscribed' in config else None
         self.cronEnabled = config['enable_cron'] == 'True' if 'enable_cron' in config else False
 
-    def _getMacaddress(self):
-        macaddresses = [q.system.net.getMacAddress(nic) for nic in q.system.net.getNics() if not q.system.net.getMacAddress(nic) == '00:00:00:00:00:00']
-        return macaddresses[0] or "00:00:00:00:00:00"
+    def _getMacaddress(self, con):
+        """
+        Retrieve the macaddress of the machine to register the agent
+        @param con: cloudAPI connection
+        """
+        ipaddress = q.system.net.getReachableIpAddress(con._server, con._port)
+        return q.system.net.getMacAddressForIp(ipaddress) or '00:00:00:00:00:00'
 
     def _getConfig(self):
+        """
+        Construct config dict from properties
+        """
         config = dict()
         config['cron_interval'] = self.interval
         config['agentguid'] = self.agentguid
@@ -41,6 +56,9 @@ class AgentConfig:
         return config
 
     def updateConfig(self):
+        """
+        Update agent config file
+        """
         i.config.agent.configure('main', self._getConfig())
 
 
@@ -70,7 +88,10 @@ class WFLAgent:
 
     @q.manage.applicationserver.expose
     def log(self, pid, level, log_message):
-        log_message = base64.decodestring(log_message)
+        try:
+            log_message = base64.decodestring(log_message)
+        except binascii.Error:
+            log_message = log_message
         self.__agent.log(pid, level, log_message)
         return True
 
@@ -80,4 +101,7 @@ class WFLAgent:
 
     @q.manage.applicationserver.expose
     def get_agent_id(self):
+        """
+        Retrieve the guid of the agent
+        """
         return self.__agent.agentguid
