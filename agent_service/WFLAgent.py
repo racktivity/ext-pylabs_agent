@@ -39,7 +39,7 @@ class AgentConfig:
         @param con: cloudAPI connection
         """
         ipaddress = q.system.net.getReachableIpAddress(con._server, con._port)
-        return q.system.net.getMacAddressForIp(ipaddress) or '00:00:00:00:00:00'
+        return q.system.net.getMacAddressForIp(ipaddress).upper() or '00:00:00:00:00:00'
 
     def _getConfig(self):
         """
