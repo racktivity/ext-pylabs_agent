@@ -4,10 +4,9 @@ import sys, yaml
 from subprocess import Popen, PIPE
 from twisted.internet import reactor
 
-PYTHON_BIN = '/opt/qbase3/bin/python2.5'
-SCRIPT_WRAPPER_PY = '/opt/qbase3/apps/applicationserver/services/agent_service/scriptwrapper.py'
+PYTHON_BIN =  sys.executable
+SCRIPT_WRAPPER_PY =  q.system.fs.joinPaths(q.dirs.appDir ,'applicationserver' , 'services' , 'agent_service' , 'scriptwrapper.py')
 
-KILL_BIN = '/bin/kill'
 
 class ScriptExecutor:
     
@@ -29,7 +28,9 @@ class ScriptExecutor:
         else:
             wrapper_input = {'params':params, 'script':script}
             yaml_wrapper_input = yaml.dump(wrapper_input)
-            proc = Popen([PYTHON_BIN, SCRIPT_WRAPPER_PY], stdout=PIPE, stdin=PIPE)
+            q.logger.log("Executing [%s] with [%s]" % (PYTHON_BIN, SCRIPT_WRAPPER_PY))
+            #proc = Popen([PYTHON_BIN, SCRIPT_WRAPPER_PY], stdout=PIPE, stdin=PIPE)
+            proc = q.system.process.executeAsync(PYTHON_BIN , [SCRIPT_WRAPPER_PY])
             self._processManager.addProcess(proc, fromm, jobguid)
             proc.stdin.write(yaml_wrapper_input)
             proc.stdin.close()
@@ -37,14 +38,14 @@ class ScriptExecutor:
     def stop(self, fromm, jobguid):
         if self._processManager.hasJob(fromm, jobguid):
             proc = self._processManager.getProcess(fromm, jobguid)
-            Popen([KILL_BIN, str(proc.pid)])
+            q.system.process.kill(str(proc.pid), signal.SIGSTOP)
         else:
             q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + jobguid + "' does not exist: cannot stop the job", 3)
     
     def kill(self, fromm, jobguid):
         if self._processManager.hasJob(fromm, jobguid):
             proc = self._processManager.getProcess(fromm, jobguid)
-            Popen([KILL_BIN, '-9', str(proc.pid)])
+            q.system.process.kill(str(proc.pid))
         else:
             q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + jobguid + "' does not exist: cannot kill the job", 3)
     
