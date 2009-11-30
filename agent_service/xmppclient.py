@@ -138,7 +138,8 @@ class XMPPClient:
     
     def _connect(self):
         self.status = 'CONNECTING'
-        
+       
+        q.logger.log("[XMPPCLIENT] _connect:  Connected to server %s %s'" % (self.server, self.username) )
         c = client.XMPPClientFactory(jid.JID(self.username+"@"+self.server), self.password)
         c.addBootstrap(xmlstream.STREAM_CONNECTED_EVENT, self._connected)
         c.addBootstrap(xmlstream.STREAM_AUTHD_EVENT, self._authenticated)
@@ -147,6 +148,7 @@ class XMPPClient:
 
         def _do_connect():
             self.connector = SRVConnector(reactor,'xmpp-client' ,self.server, c)
+            self.connector.pickServer =  lambda: (self.server, 5222)
             self.connector.connect()
     
         reactor.callInThread(_do_connect)
@@ -154,7 +156,7 @@ class XMPPClient:
     def _connected(self, xmlstream):
         self.status = 'CONNECTED'
             
-        q.logger.log("[XMPPCLIENT] Connected to server '" + self.server + "'", 5)
+        q.logger.log("[XMPPCLIENT] _connected:  Connected to server '" + self.server + "'", 5)
         
         # Connected: capture the stream
         self.xmlstream = xmlstream
