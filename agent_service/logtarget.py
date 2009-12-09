@@ -3,7 +3,7 @@ from pymonkey.log.LogTargets import LogTarget
 import base64
 
 class AgentLogTarget(LogTarget):
-    def __init__(self, serverIp='127.0.0.1', serverPort='8888', serverPath = '/', maxVerbosityLevel=5):
+    def __init__(self, serverIp='127.0.0.1', serverPort='8888', serverPath = '/', maxVerbosityLevel=1):
         LogTarget.__init__(self)
         self.serverIp = serverIp
         self.serverPort = serverPort
