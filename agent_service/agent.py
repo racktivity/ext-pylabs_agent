@@ -6,12 +6,12 @@ from agent_service.scriptexecutor import ScriptExecutor
 
 class Agent:
 
-    def __init__(self, agentguid, xmppServer, password, agentcontrollerguid, subscribedCallback=None):
+    def __init__(self, agentguid, xmppServer, password, agentcontrollerguid, hostname, subscribedCallback=None):
         self.agentguid = agentguid
         self.agentcontrollerguid = agentcontrollerguid
         self.subscribedCallback = subscribedCallback
 
-        self.xmppclient = XMPPClient(agentguid, xmppServer, password)
+        self.xmppclient = XMPPClient(agentguid, xmppServer, password, hostname)
         self.xmppclient.setMessageReceivedCallback(self._message_received)
         self.xmppclient.setPresenceReceivedCallback(self._presence_received)
 

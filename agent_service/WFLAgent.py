@@ -29,6 +29,7 @@ class AgentConfig:
         self.agentguid = config['agentguid']
         self.xmppserver = config['xmppserver']
         self.password = config['password']
+        self.hostname = config['hostname'] if 'hostname' in config else None
         self.agentcontrollerguid = config['agentcontrollerguid']
         self.subscribed = config['subscribed'] if 'subscribed' in config else None
         self.cronEnabled = config['enable_cron'] == 'True' if 'enable_cron' in config else False
@@ -50,6 +51,7 @@ class AgentConfig:
         config['agentguid'] = self.agentguid
         config['xmppserver'] = self.xmppserver
         config['password'] = self.password
+        config['hostname'] = self.hostname
         config['agentcontrollerguid'] = self.agentcontrollerguid
         config['subscribed'] = self.subscribed
         config['enable_cron'] = self.cronEnabled
@@ -76,7 +78,7 @@ class WFLAgent:
             config.subscribed = True
             config.updateConfig()
 
-        self.__agent = Agent(config.agentguid, config.xmppserver, config.password, config.agentcontrollerguid, _onSubscribed)
+        self.__agent = Agent(config.agentguid, config.xmppserver, config.password, config.agentcontrollerguid, config.hostname, _onSubscribed)
 
 
     if config.cronEnabled:

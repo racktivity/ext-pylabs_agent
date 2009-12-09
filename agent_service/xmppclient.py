@@ -18,12 +18,14 @@ class XMPPClient:
     timeOut, the connection will be closed and the disconnectedCallback will be called. 
     '''
     
-    def __init__(self, username, server, password, timeOut=5):
+    def __init__(self, username, server, password, hostname, timeOut=5):
         self.username = username
         self.server = server
         self.password = password
         self.timeOut = timeOut
-        
+        self.hostname = hostname
+        self.xmpp_user = None
+
         self.status = 'NOT_CONNECTED'
         
         self.messageReceivedCallback = None
@@ -164,7 +166,7 @@ class XMPPClient:
     def _authenticated(self, xmlstream):
         self.status = 'RUNNING'
         
-        q.logger.log("[XMPPCLIENT] Server '" + self.server + "' authenticated user '" + self.username + "'", 5)
+        q.logger.log("[XMPPCLIENT] Server '" + self.server + "' authenticated user '" + self.xmpp_user + "'", 5)
         
         # Authentication succes: stop the startup watchdog
         if self.startup_watchdog:
