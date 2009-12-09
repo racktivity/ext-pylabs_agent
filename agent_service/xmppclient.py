@@ -18,12 +18,14 @@ class XMPPClient:
     timeOut, the connection will be closed and the disconnectedCallback will be called. 
     '''
     
-    def __init__(self, username, server, password, timeOut=5):
+    def __init__(self, username, server, password, hostname, timeOut=5):
         self.username = username
         self.server = server
         self.password = password
         self.timeOut = timeOut
-        
+        self.hostname = hostname
+        self.xmpp_user = None
+
         self.status = 'NOT_CONNECTED'
         
         self.messageReceivedCallback = None
@@ -139,8 +141,14 @@ class XMPPClient:
     def _connect(self):
         self.status = 'CONNECTING'
        
-        q.logger.log("[XMPPCLIENT] _connect:  Connected to server %s %s'" % (self.server, self.username) )
-        c = client.XMPPClientFactory(jid.JID(self.username+"@"+self.server), self.password)
+        if self.hostname != None:
+            self.xmpp_user = self.username+"@"+self.hostname
+        else:
+            self.xmpp_user = self.username+"@"+self.server
+
+        q.logger.log("[XMPPCLIENT] Connecting to server %s with xmpp user %s'" % (self.server, self.xmpp_user) )
+
+        c = client.XMPPClientFactory(jid.JID(self.xmpp_user), self.password)
         c.addBootstrap(xmlstream.STREAM_CONNECTED_EVENT, self._connected)
         c.addBootstrap(xmlstream.STREAM_AUTHD_EVENT, self._authenticated)
         c.addBootstrap(xmlstream.INIT_FAILED_EVENT, self._init_failed)
@@ -156,7 +164,7 @@ class XMPPClient:
     def _connected(self, xmlstream):
         self.status = 'CONNECTED'
             
-        q.logger.log("[XMPPCLIENT] _connected:  Connected to server '" + self.server + "'", 5)
+        q.logger.log("[XMPPCLIENT] _connected:  Connected to server [%s], trying with usersname [%s]" % (self.server, self.xmpp_user))
         
         # Connected: capture the stream
         self.xmlstream = xmlstream
@@ -166,7 +174,7 @@ class XMPPClient:
     def _authenticated(self, xmlstream):
         self.status = 'RUNNING'
         
-        q.logger.log("[XMPPCLIENT] Server '" + self.server + "' authenticated user '" + self.username + "'", 5)
+        q.logger.log("[XMPPCLIENT] Server '" + self.server + "' authenticated user '" + self.xmpp_user + "'", 5)
         
         # Authentication succes: stop the startup watchdog
         if self.startup_watchdog:
