@@ -18,7 +18,7 @@ script = input['script']
 params = input['params']
 
 script = base64.decodestring(script)
-q.logger.addLogTarget(AgentLogTarget())
+#q.logger.addLogTarget(AgentLogTarget())
 
 errormessage = None
 try:
