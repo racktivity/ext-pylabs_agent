@@ -141,8 +141,16 @@ class XMPPClient:
     def _connect(self):
         self.status = 'CONNECTING'
         
-        c = client.XMPPClientFactory(jid.JID(self.username+"@"+self.server), self.password)
-        c.addBootstrap(xmlstream.STREAM_CONNECTED_EVENT, self._connected)
+        if self.hostname != None:
+            self.xmpp_user = self.username+"@"+self.hostname
+	else:
+            self.xmpp_user = self.username+"@"+self.server
+
+        q.logger.log("[XMPPCLIENT] Connecting to server %s with xmpp user %s'" % (self.server, self.xmpp_user) )
+
+        c = client.XMPPClientFactory(jid.JID(self.xmpp_user), self.password)
+
+	c.addBootstrap(xmlstream.STREAM_CONNECTED_EVENT, self._connected)
         c.addBootstrap(xmlstream.STREAM_AUTHD_EVENT, self._authenticated)
         c.addBootstrap(xmlstream.INIT_FAILED_EVENT, self._init_failed)
         c.addBootstrap(xmlstream.STREAM_END_EVENT, self._end_stream)
