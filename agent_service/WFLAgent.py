@@ -29,7 +29,7 @@ class AgentConfig:
         self.agentguid = config['agentguid']
         self.xmppserver = config['xmppserver']
         self.password = config['password']
-        self.hostname = config['hostname'] if 'hostname' in config else None
+        self.hostname = config['hostname'] if 'hostname' in config else self.xmppserver 
         self.agentcontrollerguid = config['agentcontrollerguid']
         self.subscribed = config['subscribed'] if 'subscribed' in config else None
         self.cronEnabled = config['enable_cron'] == 'True' if 'enable_cron' in config else False
