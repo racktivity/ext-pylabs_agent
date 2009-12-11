@@ -1,10 +1,8 @@
 import os, xmlrpclib
-from pymonkey.log.LogTargets import LogTarget
 import base64
 
-class AgentLogTarget(LogTarget):
+class AgentLogTarget(object):
     def __init__(self, serverIp='127.0.0.1', serverPort='8888', serverPath = '/', maxVerbosityLevel=1):
-        LogTarget.__init__(self)
         self.serverIp = serverIp
         self.serverPort = serverPort
         self.serverPath = serverPath
@@ -18,6 +16,6 @@ class AgentLogTarget(LogTarget):
     def ___repr__(self):
         return str(self)
 
-    def log(self, record):
+    def log(self, message):
         msg = base64.encodestring(record.msg)
         self.connection.agent_service.log(self.pid, record.verbosityLevel, msg)
