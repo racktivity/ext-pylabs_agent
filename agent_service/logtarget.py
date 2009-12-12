@@ -1,5 +1,6 @@
 import os, xmlrpclib
 import base64
+from pymonkey import q
 
 class AgentLogTarget(object):
     def __init__(self, serverIp='127.0.0.1', serverPort='8888', serverPath = '/', maxVerbosityLevel=1):
@@ -9,6 +10,14 @@ class AgentLogTarget(object):
         self.maxVerbosityLevel = maxVerbosityLevel
         self.connection = xmlrpclib.ServerProxy('http://%s:%s%s/'%(self.serverIp, self.serverPort, self.serverPath))
         self.pid = os.getpid()
+        self.enabled = True
+
+    def checkTarget(self):
+        """
+        check status of target, if ok return True
+        for std out always True
+        """
+        True
 
     def __str__(self):
         return "AgentControllerLogTarget logging to %s:%s"%(self.serverIp, self.serverPort)
@@ -17,5 +26,7 @@ class AgentLogTarget(object):
         return str(self)
 
     def log(self, message):
-        msg = base64.encodestring(record.msg)
-        self.connection.agent_service.log(self.pid, record.verbosityLevel, msg)
+        logmsg = q.logger.getLogObject(message)
+        msg = base64.encodestring(logmsg.message)
+        self.connection.agent_service.log(self.pid, logmsg.level, msg)
+        return True
