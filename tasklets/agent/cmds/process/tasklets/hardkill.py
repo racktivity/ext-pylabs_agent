@@ -7,6 +7,9 @@ def match(q, i, params, tags):
 
 def main(q, i, params, tags):
     q.logger.log("process hardkill params:%s tags:%s"%(params,tags))
+    
+    q.logger.log("tasknr: %s"%params['tasknr'])    
+    
     params["returnmessage"] = 'Successfully executed command process hardkill' 
     params["returncode"] = 0
 

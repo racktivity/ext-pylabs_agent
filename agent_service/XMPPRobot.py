@@ -58,6 +58,7 @@ class CommandExecuter(object):
                 
         except Exception, ex:
             q.logger.log(ex)
+            raise ex
         finally:
             return result
                 
@@ -105,9 +106,14 @@ class CommandExecuter(object):
     def _getArgumentsAndOptions(self, commandInput): 
         args = commandInput.read().split("$")
         args = [x[:-1] for x in args]
-        options = filter(lambda a: a[0] =='-' , args)
-        args = list(set(args).difference(set(options)))                
-        return args, options
+        options = filter(lambda a: a[:1] =='-' , args)
+        argsResult = args
+        for arg in args:
+            if arg in options:
+                argsResult.remove(arg)            
+            
+        #args = list(set(args).difference(set(options)))                
+        return argsResult, options
     
 #    def _handleAgent(self, fromm, tasknr, commandLine, commandInput):
 #        """

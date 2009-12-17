@@ -7,6 +7,7 @@ def match(q, i, params, tags):
 
 def main(q, i, params, tags):
     q.logger.log("qpackages emptycache params:%s tags:%s"%(params,tags))
+    
     params["returnmessage"] = 'Successfully executed command qpackages emptycache' 
     params["returncode"] = 0
 
