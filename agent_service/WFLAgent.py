@@ -1,25 +1,64 @@
 from pymonkey import q, i
 from agent_service.agent import Agent
 import base64
+import binascii
 
 class AgentConfig:
     def __init__(self):
-        try:
+        """
+        Initialize configuration
+        """
+        add = False
+        if 'main' in i.config.agent.list():
             config = i.config.agent.getConfig('main')
-        except KeyError:
-            q.logger.log("Agent failed to find the 'main' configuration: not starting.", 1)
-            raise
+        else:
+            add = True
+            con = i.config.cloudApiConnection.find('main')
+            mac = self._getMacaddress(con)
+            q.logger.log('registerAgent PRE',con,mac)
+            try:
+                config = con.machine.registerAgent(mac)['result']
+            except Exception,e:
+                q.logger.log('registerAgent Exception',e)
+            q.logger.log('registerAgent REPLY',config)
+            if not 'hostname' in config:
+                config['hostname']=config['xmppserver']
+            config['xmppserver']=con._server
+            q.logger.log('registerAgent UPDATE',config)
 
+        self._setConfig(config)
+        if add:
+            i.config.agent.add('main', self._getConfig())
+
+    def _setConfig(self, config):
+        """
+        Set properties based on config dict
+        @param config: config dict
+        """
         self.interval = int(config['cron_interval']) if 'cron_interval' in config else 10
         self.agentguid = config['agentguid']
         self.xmppserver = config['xmppserver']
         self.password = config['password']
-        self.hostname = config['hostname'] if 'hostname' in config else None
+        self.hostname = config['hostname'] if 'hostname' in config else self.xmppserver
         self.agentcontrollerguid = config['agentcontrollerguid']
         self.subscribed = config['subscribed'] if 'subscribed' in config else None
-        self.cronEnabled = config['enable_cron'] == 'True' if 'enable_cron' in config else True
+        self.cronEnabled = config['enable_cron'] == 'True' if 'enable_cron' in config else False
 
-    def updateConfig(self):
+    def _getMacaddress(self, con):
+        """
+        Retrieve the macaddress of the machine to register the agent
+        @param con: cloudAPI connection
+        """
+        import sys
+        if sys.platform=='win32':
+            return '00:00:00:00:00:00'
+        ipaddress = q.system.net.getReachableIpAddress(con._server, con._port)
+        return q.system.net.getMacAddressForIp(ipaddress).upper() or '00:00:00:00:00:00'
+
+    def _getConfig(self):
+        """
+        Construct config dict from properties
+        """
         config = dict()
         config['cron_interval'] = self.interval
         config['agentguid'] = self.agentguid
@@ -29,8 +68,13 @@ class AgentConfig:
         config['agentcontrollerguid'] = self.agentcontrollerguid
         config['subscribed'] = self.subscribed
         config['enable_cron'] = self.cronEnabled
-        i.config.agent.configure('main', config)
+        return config
 
+    def updateConfig(self):
+        """
+        Update agent config file
+        """
+        i.config.agent.configure('main', self._getConfig())
 
 config = AgentConfig()
 
@@ -58,7 +102,10 @@ class WFLAgent:
 
     @q.manage.applicationserver.expose
     def log(self, pid, level, log_message):
-        log_message = base64.decodestring(log_message)
+        try:
+            log_message = base64.decodestring(log_message)
+        except binascii.Error:
+            log_message = log_message
         self.__agent.log(pid, level, log_message)
         return True
 
@@ -68,4 +115,7 @@ class WFLAgent:
 
     @q.manage.applicationserver.expose
     def get_agent_id(self):
+        """
+        Retrieve the guid of the agent
+        """
         return self.__agent.agentguid
