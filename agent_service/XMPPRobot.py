@@ -10,13 +10,6 @@ class TaskletEngineFactory(object):
     def __init__(self):
     
         self.COMMANDS = dict() 
-#        {'agent':_handleAgent, 
-#        'shellcmd':_handleShellCmd, 
-#        'qshellcmd':_handleQShellCmd, 
-#        'qpackages':_handleQpackages, 
-#        'portforward':_handlePortForward, 
-#        'system':_handleSystem, 
-#        'process':_Process}    
         
         q.system.fswalker.walk(q.system.fs.joinPaths(q.dirs.appDir, "agent", "cmds"), callback=self.processCommandDir, arg=self.COMMANDS, includeFolders=True, recursive=False)
     
@@ -88,7 +81,7 @@ class CommandExecuter(object):
             raise RuntimeError("Illegal command %s used"% command)
         
         
-        args, options= self._getArgumentsAndOptions(commandInput)
+        args, options= CommandExecuter._getArgumentsAndOptions(commandInput)
           
         params = dict()
         
@@ -102,163 +95,18 @@ class CommandExecuter(object):
         self.taskletEngineFactory.COMMANDS[command](params)
         return params
         
-        
-    def _getArgumentsAndOptions(self, commandInput): 
+    @classmethod
+    def _getArgumentsAndOptions(cls, commandInput): 
         args = commandInput.read().split("$")
-        args = [x[:-1] for x in args]
-        options = filter(lambda a: a[:1] =='-' , args)
-        argsResult = args
-        for arg in args:
-            if arg in options:
-                argsResult.remove(arg)            
-            
-        #args = list(set(args).difference(set(options)))                
+        argsResult = list()
+        def mod(arg):
+            arg = arg[:-1]
+            if arg[:1] == '-':
+                return True
+            else:
+                argsResult.append(arg)
+                return False
+        
+        options = filter(mod, args)
         return argsResult, options
-    
-#    def _handleAgent(self, fromm, tasknr, commandLine, commandInput):
-#        """
-#        subcommands can be: register or passwd
-#        """            
-#        subCommand = commandLine.pop(0)
-#        args = self._getArguments(commandLine, commandInput, ',')
-#        
-#        result = dict()
-#        if subCommand == "register":
-#            result = self.agentRegister(args)
-#        elif subCommand == "passwd":
-#            result = self.agentPasswd(*args)
-#        else:
-#            raise RuntimeError("Unknown subCommand %s"%subCommand)
-#        return result
-#            
-#
-#    def _handleShellCmd(self, fromm, tasknr, commandLine, commandInput):
-#        options = self._getOptions(commandLine)
-#        commandLine = self._removeOptions(commandLine)
-#        
-#        args = self._getArguments(commandLine, commandInput)
-#        
-#                    
-#        self.shellCmd(args, options)
-#
-#    def _handleQShellCmd(self, fromm, tasknr, commandLine, commandInput):
-#
-#        options = self._getOptions(commandLine)
-#        commandLine = self._removeOptions(commandLine)
-#
-#        args = self._getArguments(commandLine, commandInput)
-#        
-#        self.qshellCmd(args, options)
-#
-#    def _handleQpackages(self, fromm, tasknr, commandLine, commandInput):
-#        """
-#        subcommands can be: update or setsource or emptycache or install
-#        """ 
-#        subCommand = commandLine.pop(0)
-#        args = self._getArguments(commandLine, commandInput, ':')
-#        
-#        result = dict()
-#        if subCommand == "update":
-#            result = self.qpackagesUpdate()
-#        elif subCommand == "setsource":
-#            result = self.qpackagesSetSource(*args)
-#        elif subCommand == "emptycache":
-#            result = self.qpackagesEmptyCache()
-#        elif subCommand == "install":
-#            result = self.qpackagesInstall(*args)
-#        else:
-#            raise RuntimeError("Unknown subCommand %s"%subCommand)
-#        return result
-#
-#    def _handlePortForward(self, fromm, tasknr, commandLine, commandInput):
-#        options = self._getOptions(commandLine)
-#        commandLine = self._removeOptions(commandLine)
-#        
-#        args = self._getArguments(commandLine, commandInput, ':')
-#        
-#        # $serverport:$localdestination:$portondestination $login:$passwd@$sshServerInPubDC
-#        serverPort , localDestination, portDestination, login, password_sshServerInPubDC = args 
-#        password , sshServerInPubDC = password_sshServerInPubDC.split('@')
-#        
-#        self.portforward(args, options, serverPort , localDestination, portDestination, login, password, sshServerInPubDC)        
-#
-#    def _handleSystem(self, fromm, tasknr, commandLine, commandInput):
-#        """
-#        subcommands can be: setpasswd or reboot
-#        """
-#        subCommand = commandLine.pop(0)
-#        args = self._getArguments(commandLine, commandInput, ',')
-#        
-#        
-#        
-#        result = dict()
-#        if subCommand == "setpasswd":
-#            result = self.systemSetPassword(*args)
-#        elif subCommand == "reboot":
-#            result = self.systemReboot()
-#        else:
-#            raise RuntimeError("Unknown subCommand %s"%subCommand)
-#        return result
-#
-#    
-#    def _Process(self, fromm, tasknr, commandLine, commandInput):
-#        # list or kill or hardkill
-#        subCommand = commandLine.pop(0)
-#        
-#        result = dict()
-#        if subCommand == "list":
-#            result = self.processList()
-#        if subCommand == "kill":
-#            result = self.processKill(fromm, tasknr)
-#        if subCommand == "hardkill":
-#            result = self.processHardKill(fromm, tasknr)
-#        else:
-#            raise RuntimeError("Unknown subCommand %s"%subCommand)
-#        return result
-#    
-            
-            
-#    def agentRegister(self, xmppServerList):
-#        print "agentRegister() xmppServerList:", xmppServerList
-#        pass
-#    
-#    def agentPasswd(self, newPassword):
-#        print "agentPasswd() newPasword:", newPassword
-#
-#    def shellCmd(self, args, options):
-#        print "shellCmd() options: %s args: %s"% (options, args)
-#    def qshellCmd(self, args, options):
-#        print "qshellCmd() options: %s args: %s"% (options, args)
-#    
-#    def qpackagesUpdate(self):
-#        print "qpackageUpdate()"
-#        
-#    def qpackagesSetSource(self, source):
-#        print "qpackageSetSource() source:", source
-#        
-#    def qpackagesEmptyCache(self):
-#        print "qpackagesEmptyCach()"
-#        
-#    def qpackagesInstall(self, name, version, domain):
-#        print "qpackageInstall() name:%s version:%s domain:%s"% (name, version, domain)
-#    
-#    def portforward(self, options, serverPort , localDestination, portDestination, login, password, sshServerInPubDC):
-#        print "portforward() options:%s serverPort:%s localDestination:%s portDestination:%s login:%s password:%s sshServerInPubDC:%s"% (options, serverPort , localDestination, portDestination, login, password, sshServerInPubDC)
-#            
-#    def systemSetPassword(self, username, password):
-#        print "systemSetPassword() username:%s password:%s"% (username, password)
-#    
-#    def systemReboot(self):
-#        print "systemReboot()"
-#    
-#    def processList(self):
-#        print "processList()"
-#        
-#    def processKill(self, fromm, tasknr):
-#        print "processKill() fromm:%s tasknr:%s"% (fromm, tasknr)
-#        
-#    def processHardKill(self, fromm, tasknr):
-#        print "processHardKill() fromm:%s tasknr:%s" % (fromm, tasknr)
-            
-            
         
