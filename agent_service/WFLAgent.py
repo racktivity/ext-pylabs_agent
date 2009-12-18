@@ -15,16 +15,16 @@ class AgentConfig:
             add = True
             con = i.config.cloudApiConnection.find('main')
             mac = self._getMacaddress(con)
-            q.logger.log('registerAgent PRE',con,mac)
+            q.logger.log('registerAgent PRE %r %r'%(con,mac))
             try:
                 config = con.machine.registerAgent(mac)['result']
             except Exception,e:
-                q.logger.log('registerAgent Exception',e)
-            q.logger.log('registerAgent REPLY',config)
+                q.logger.log('registerAgent Exception %r'%e)
+            q.logger.log('registerAgent POST %r'%config)
             if not 'hostname' in config:
                 config['hostname']=config['xmppserver']
             config['xmppserver']=con._server
-            q.logger.log('registerAgent UPDATE',config)
+            q.logger.log('registerAgent UPDATE %r'%config)
 
         self._setConfig(config)
         if add:
