@@ -14,11 +14,21 @@ class AgentConfig:
         else:
             add = True
             con = i.config.cloudApiConnection.find('main')
-            config = con.machine.registerAgent(self._getMacaddress(con))['result']
+            mac = self._getMacaddress(con)
+            q.logger.log('registerAgent PRE',con,mac)
+            try:
+                config = con.machine.registerAgent(mac)['result']
+            except Exception,e:
+                q.logger.log('registerAgent Exception',e)
+            q.logger.log('registerAgent REPLY',config)
+            if not 'hostname' in config:
+                config['hostname']=config['xmppserver']
+            config['xmppserver']=con._server
+            q.logger.log('registerAgent UPDATE',config)
 
         self._setConfig(config)
-        if add:i.config.agent.add('main', self._getConfig())
-
+        if add:
+            i.config.agent.add('main', self._getConfig())
 
     def _setConfig(self, config):
         """
@@ -29,7 +39,7 @@ class AgentConfig:
         self.agentguid = config['agentguid']
         self.xmppserver = config['xmppserver']
         self.password = config['password']
-        self.hostname = config['hostname'] if 'hostname' in config else self.xmppserver 
+        self.hostname = config['hostname'] if 'hostname' in config else self.xmppserver
         self.agentcontrollerguid = config['agentcontrollerguid']
         self.subscribed = config['subscribed'] if 'subscribed' in config else None
         self.cronEnabled = config['enable_cron'] == 'True' if 'enable_cron' in config else False
@@ -39,6 +49,9 @@ class AgentConfig:
         Retrieve the macaddress of the machine to register the agent
         @param con: cloudAPI connection
         """
+        import sys
+        if sys.platform=='win32':
+            return '00:00:00:00:00:00'
         ipaddress = q.system.net.getReachableIpAddress(con._server, con._port)
         return q.system.net.getMacAddressForIp(ipaddress).upper() or '00:00:00:00:00:00'
 
@@ -62,7 +75,6 @@ class AgentConfig:
         Update agent config file
         """
         i.config.agent.configure('main', self._getConfig())
-
 
 config = AgentConfig()
 
