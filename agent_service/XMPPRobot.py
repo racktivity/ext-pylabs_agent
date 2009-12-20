@@ -29,36 +29,43 @@ class CommandExecuter(object):
 
     
     def __init__(self, taskletEngineFactory):
+        self._tasknr = 0
         self._history = defaultdict(cStringIO.StringIO) # will contain the accumulated commands for certain user
         self.taskletEngineFactory = taskletEngineFactory
         
         
-    def execute(self, fromm, command, tasknr=None):
-        # here're the commands parsing
-        result = dict()
+    def execute(self, fromm, command):
+        # command parsing
+        q.logger.log("==========> received:%s , from:%s"%(command, fromm))
         try:
-            command = command.strip() 
-            
-            
             if command == END_OF_COMMAND: # now we are ready to execute the accumulated command for this user
-                commandInput = self._history[(fromm,tasknr)]
+                commandInput = self._history[fromm]
                 # reset the history for this command
-                self._history[(fromm,tasknr)] = cStringIO.StringIO()
-                result =  self._executeMultipleLineCommand(fromm, tasknr, commandInput)
+                self._history[fromm] = cStringIO.StringIO()
+                self._executeMultipleLineCommand(fromm, commandInput)
+                result = self._tasknr
+                self._tasknr += 1
+                                                
+                return result
             else:
+                if fromm not in self._history:
+                    if not command.startswith('!'):#we are waiting for a start of commands, and rubbish is received
+                        q.logger.log('received invalid message %s while waiting for a new command'%command)                        
+                        
                 # append this command to user's accumulated command
-                self._history[(fromm,tasknr)].writelines("%s\n"%command);
+                self._history[fromm].writelines("%s\n"%command);
                 
         except Exception, ex:
             q.logger.log(ex)
             raise ex
+            self._history[fromm] = cStringIO.StringIO()
         finally:
-            return result
+            return None
                 
             
             
     
-    def _executeMultipleLineCommand(self, fromm, tasknr, commandInput):
+    def _executeMultipleLineCommand(self, fromm, commandInput):
         """
         we will execute the lines of each command
         e.g 
@@ -72,8 +79,9 @@ class CommandExecuter(object):
             return # nothing to execute
         
         # first line will contain the command name
-        commandInput.seek(0)                
-        commandLine = commandInput.readline().replace('!','',1).split()        
+        commandInput.seek(0)                        
+        commandLine = commandInput.readline().replace('!','',1).split()
+        
         
         command = commandLine.pop(0)        
         
@@ -89,11 +97,12 @@ class CommandExecuter(object):
         params['subcmd'] = commandLine[0] if commandLine else ''
         params['params'] = args
         params['options'] = options
-        params['tasknr'] = tasknr
+        params['tasknr'] = self._tasknr
         params['from'] = fromm
         
         self.taskletEngineFactory.COMMANDS[command](params)
-        return params
+        
+        # return the output of execution
         
     @classmethod
     def _getArgumentsAndOptions(cls, commandInput): 

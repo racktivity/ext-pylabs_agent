@@ -3,6 +3,7 @@ from agent_service.agent import Agent
 import base64
 import binascii
 
+
 class AgentConfig:
     def __init__(self):
         """
@@ -17,6 +18,7 @@ class AgentConfig:
             config = con.machine.registerAgent(self._getMacaddress(con))['result']
 
         self._setConfig(config)
+        
         if add:i.config.agent.add('main', self._getConfig())
 
 

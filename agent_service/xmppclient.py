@@ -203,13 +203,21 @@ class XMPPClient:
         fromm = elem.getAttribute('from').split("@")[0]
         type = elem.getAttribute('type')
         id = elem.getAttribute('id')
-        message = str(elem.children[0].children[0])
-        
+
+        message = ''
+
+        for child in elem.children:
+            if child.name == 'body':
+                message = str(child.children[0])
+        if not message.strip():
+            return
+
+        q.logger.log('message:%s'%message)
         q.logger.log("[XMPPCLIENT] Message '" + str(id) + "' of type '" + str(type) +"'" + "' received from '" + fromm + "'", 5)
-        
+
         if self.messageReceivedCallback:
             self.messageReceivedCallback(fromm, type, id, message)
-    
+
     def _init_failed(self, failure):
         self._disconnected('Init failed ' + str(failure))
     

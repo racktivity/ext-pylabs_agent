@@ -3,6 +3,9 @@ from pymonkey import q, i
 import yaml
 from agent_service.xmppclient import XMPPClient
 from agent_service.scriptexecutor import ScriptExecutor
+from XMPPRobot import *
+from collections import defaultdict
+
 
 class Agent:
 
@@ -27,19 +30,25 @@ class Agent:
         self.scriptexecutor = ScriptExecutor()
         self.scriptexecutor.setScriptDoneCallback(self._script_done)
         self.scriptexecutor.setScriptDiedCallback(self._script_died)
+        
+        self._tasknr = 0
+        #self._jobIDToTasknr = dict() this is for the production output
+        self._jobIDToTasknr = defaultdict(lambda:1)  # this is a temporary, because pidgen generate new id each time 
+        self._factory = TaskletEngineFactory()
+        self._commandExecuter = CommandExecuter(self._factory)
+
 
     def _message_received(self, fromm, type, id, message):
-        if fromm == self.agentcontrollerguid:
-            if type == 'start':
-                self._executeScript(fromm, id, message)
-            elif type == 'stop':
-                self._stopScript(fromm, id)
-            elif type == 'kill':
-                self._killScript(fromm, id)
-            else:
-                q.logger.log("[AGENT] Agent '" + self.agentguid + "' received message with unknown type: '" + type + "' from the agent controller.", 4)
+        q.logger.log("[AGENT] Agent '" + self.agentguid + "' received message with type: '" + type + "' from the agent controller.", 6)
+        if type == 'start':
+            self._executeScript(fromm, id, message)
+        elif type == 'stop':
+            self._stopScript(fromm, id)
+        elif type == 'kill':
+            self._killScript(fromm, id)
         else:
-            q.logger.log("[AGENT] Agent '" + self.agentguid + "' received message from agent '" + agentguid + "', nothing done: not the agent controller.", 5)
+            result = self._commandExecuter.execute(fromm, message, self._jobIDToTasknr[id])#self._generateTasknr(id))
+            self.xmppclient.sendMessage(fromm, 'chat', id, str(result))                
 
     def _presence_received(self, fromm, type):
         if fromm == self.agentcontrollerguid:
@@ -89,3 +98,12 @@ class Agent:
     def _killScript(self, fromm, jobguid):
         q.logger.log("[AGENT] Agent '" + self.agentguid + "' received kill from '" + fromm + "' for job '" + jobguid + "'", 5)
         self.scriptexecutor.kill(fromm, jobguid)
+        
+    def _generateTasknr(self, jobID):
+        if jobID in self._jobIDToTasknr:
+            return self._jobIDToTasknr[jobID]
+        self._tasknr = self._tasknr + 1
+        self._jobIDToTasknr[jobID] = self._tasknr       
+        
+        return self._tasknr
+        
