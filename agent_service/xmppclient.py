@@ -212,7 +212,7 @@ class XMPPClient:
         if not message.strip():
             return
 
-        q.logger.log('message:%s'%message)
+        q.logger.log('DEBUG: message:%s'%message, 7)
         q.logger.log("[XMPPCLIENT] Message '" + str(id) + "' of type '" + str(type) +"'" + "' received from '" + fromm + "'", 5)
 
         if self.messageReceivedCallback:

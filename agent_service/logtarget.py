@@ -30,3 +30,33 @@ class AgentLogTarget(object):
         msg = base64.encodestring(logmsg.message)
         self.connection.agent_service.log(self.pid, logmsg.level, msg)
         return True
+
+class XMPPLogTarget(object):
+    def __init__(self, agent,  maxVerbosityLevel=1):
+        self._agent = agent 
+        self.enabled = True
+        self.maxVerbosityLevel = maxVerbosityLevel
+
+    def checkTarget(self):
+        """
+        check status of target, if ok return True
+        for std out always True
+        """
+        True
+
+    def __str__(self):
+        return "AgentControllerLogTarget logging to %s:%s"%(self.serverIp, self.serverPort)
+
+    def ___repr__(self):
+        return str(self)
+
+    def log(self, message):
+        logmsg = q.logger.getLogObject(message)
+        tags = q.base.tags.getObject(logmsg.tags)
+        if tags.tagExists('tasknr'):
+            tasknr = tags.tagGet('tasknr')        
+            self._agent.sendLog(tasknr, logmsg.message)
+        
+        return True
+
+        

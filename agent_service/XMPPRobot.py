@@ -28,44 +28,51 @@ class TaskletEngineFactory(object):
 class CommandExecuter(object):
 
     
-    def __init__(self, taskletEngineFactory):
+    def __init__(self, taskletEngineFactory, xmppClient=None):
         self._tasknr = 0
+        self.tasknrToJID = dict()
         self._history = defaultdict(cStringIO.StringIO) # will contain the accumulated commands for certain user
-        self.taskletEngineFactory = taskletEngineFactory
+        self._taskletEngineFactory = taskletEngineFactory
+        self._xmppClient = xmppClient
         
         
-    def execute(self, fromm, command):
+    def execute(self, fromm, command, id):
         # command parsing
-        q.logger.log("==========> received:%s , from:%s"%(command, fromm))
+        q.logger.log("DEBUG: execute(fromm:%s, command:%s, id:%s)"%(fromm, command, id))
         try:
-            if command == END_OF_COMMAND: # now we are ready to execute the accumulated command for this user
-                commandInput = self._history[fromm]
-                # reset the history for this command
-                self._history[fromm] = cStringIO.StringIO()
-                self._executeMultipleLineCommand(fromm, commandInput)
-                result = self._tasknr
-                self._tasknr += 1
-                                                
-                return result
+            if command == END_OF_COMMAND: # now we are ready to execute the accumulated command for this user                
+                commandInput = self._history[fromm]                
+                self._executeMultipleLineCommand(fromm, commandInput, id)                
             else:
                 if fromm not in self._history:
                     if not command.startswith('!'):#we are waiting for a start of commands, and rubbish is received
                         q.logger.log('received invalid message %s while waiting for a new command'%command)                        
-                        
-                # append this command to user's accumulated command
-                self._history[fromm].writelines("%s\n"%command);
+                    elif command.endswith('\n%s'%END_OF_COMMAND): # full command
+                        fullCommand = cStringIO.StringIO()
+                        fullCommand.writelines("%s\n"%command[:-2])
+                        self._executeMultipleLineCommand(fromm, fullCommand, id)
+                    else:
+                        # append this command to user's accumulated command
+                        q.logger.log('DEBUG: add %s to buffer from: %s'%(command, fromm))
+                        self._history[fromm].writelines("%s\n"%command);
+                else:
+                    # append this command to user's accumulated command
+                    q.logger.log('DEBUG: append %s to buffer from: %s'%(command, fromm))
+                    self._history[fromm].writelines("%s\n"%command);
                 
         except Exception, ex:
-            q.logger.log(ex)
+            q.logger.log(ex)            
+            # reset the history for this command
+            if fromm in self._history:
+                del self._history[fromm]
             raise ex
-            self._history[fromm] = cStringIO.StringIO()
         finally:
             return None
                 
             
             
     
-    def _executeMultipleLineCommand(self, fromm, commandInput):
+    def _executeMultipleLineCommand(self, fromm, commandInput, id):
         """
         we will execute the lines of each command
         e.g 
@@ -74,22 +81,26 @@ class CommandExecuter(object):
            all:1        
            !
         """
-        
         if not commandInput:
             return # nothing to execute
         
         # first line will contain the command name
-        commandInput.seek(0)                        
+        commandInput.seek(0)
+        q.logger.log('DEBUG _executeMultipleLineCommand from:%s , commandInput:%s'%(fromm, commandInput.getvalue()))                                
         commandLine = commandInput.readline().replace('!','',1).split()
         
         
         command = commandLine.pop(0)        
         
-        if command not in self.taskletEngineFactory.COMMANDS:
+        if command not in self._taskletEngineFactory.COMMANDS:
             raise RuntimeError("Illegal command %s used"% command)
         
         
         args, options= CommandExecuter._getArgumentsAndOptions(commandInput)
+        
+        tasknr = self._generateTasknr(fromm)
+        if self._xmppClient:
+            self._xmppClient.sendMessage(fromm, 'chat', id, str(tasknr))
           
         params = dict()
         
@@ -97,12 +108,37 @@ class CommandExecuter(object):
         params['subcmd'] = commandLine[0] if commandLine else ''
         params['params'] = args
         params['options'] = options
-        params['tasknr'] = self._tasknr
+        params['tasknr'] = tasknr
         params['from'] = fromm
         
-        self.taskletEngineFactory.COMMANDS[command](params)
+        #the following call should be async
+        self._taskletEngineFactory.COMMANDS[command](params)
         
-        # return the output of execution
+        self._commandExecuted(params, id)
+        
+
+    def _commandExecuted(self, params, id):
+        output = "!!!%(tasknr)s %(returncode)s \n%(returnmessage)s\n!!!"%{'tasknr':params['tasknr'], 'returncode':params['returncode'], 'returnmessage':params['returnmessage']}
+        fromm = self.tasknrToJID[params['tasknr']]        
+        if self._xmppClient:
+            self._xmppClient.sendMessage(fromm, 'chat', id, output)
+        
+        if params['tasknr'] in self.tasknrToJID:
+            del self.tasknrToJID[params['tasknr']]
+    
+        # reset the history for this command
+        if fromm in self._history:
+            del self._history[fromm]        
+        
+    # return the output of execution
+    def _generateTasknr(self, fromm, jobID=None):
+#        if jobID in self._jobIDToTasknr:
+#            return self._jobIDToTasknr[jobID]
+#        self._tasknr = self._tasknr + 1
+#        self._jobIDToTasknr[jobID] = self._tasknr
+        self._tasknr += 1  
+        self.tasknrToJID[self._tasknr] = fromm     
+        return self._tasknr
         
     @classmethod
     def _getArgumentsAndOptions(cls, commandInput): 

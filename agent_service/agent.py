@@ -4,7 +4,9 @@ import yaml
 from agent_service.xmppclient import XMPPClient
 from agent_service.scriptexecutor import ScriptExecutor
 from XMPPRobot import *
+from logtarget import XMPPLogTarget
 from collections import defaultdict
+import uuid
 
 
 class Agent:
@@ -31,11 +33,14 @@ class Agent:
         self.scriptexecutor.setScriptDoneCallback(self._script_done)
         self.scriptexecutor.setScriptDiedCallback(self._script_died)
         
-        self._tasknr = 0
+        self._tasknr = 0        
         #self._jobIDToTasknr = dict() this is for the production output
         self._jobIDToTasknr = defaultdict(lambda:1)  # this is a temporary, because pidgen generate new id each time 
         self._factory = TaskletEngineFactory()
-        self._commandExecuter = CommandExecuter(self._factory)
+        self._commandExecuter = CommandExecuter(self._factory, self.xmppclient)
+        self._xmppLogTarget = XMPPLogTarget(self)
+        q.logger.logTargetAdd(self._xmppLogTarget)
+        
 
 
     def _message_received(self, fromm, type, id, message):
@@ -47,8 +52,7 @@ class Agent:
         elif type == 'kill':
             self._killScript(fromm, id)
         else:
-            result = self._commandExecuter.execute(fromm, message, self._jobIDToTasknr[id])#self._generateTasknr(id))
-            self.xmppclient.sendMessage(fromm, 'chat', id, str(result))                
+            self._commandExecuter.execute(fromm, message, id)
 
     def _presence_received(self, fromm, type):
         if fromm == self.agentcontrollerguid:
@@ -99,11 +103,13 @@ class Agent:
         q.logger.log("[AGENT] Agent '" + self.agentguid + "' received kill from '" + fromm + "' for job '" + jobguid + "'", 5)
         self.scriptexecutor.kill(fromm, jobguid)
         
-    def _generateTasknr(self, jobID):
-        if jobID in self._jobIDToTasknr:
-            return self._jobIDToTasknr[jobID]
-        self._tasknr = self._tasknr + 1
-        self._jobIDToTasknr[jobID] = self._tasknr       
+    def generateXMPPMessageID(self):
+        return str(uuid.uuid1())
         
-        return self._tasknr
+       
+    def sendLog(self, tasknr, message):
+        q.logger.log('DEBUG: sendLog(tasknr:%s, message:%s)'%(tasknr, message))
+        if int(tasknr) in self._commandExecuter.tasknrToJID:
+            self.xmppclient.sendMessage(self._commandExecuter.tasknrToJID[int(tasknr)], 'chat', self.generateXMPPMessageID(), '@%s|%s'%(tasknr,message))  
+    
         
