@@ -8,7 +8,7 @@ def match(q, i, params, tags):
 def main(q, i, params, tags):
     q.logger.log("shellcmd params:%s tags:%s"%(params,tags), tags='tasknr:%s'%params['tasknr'])
 
-    cmd = ';'.join('\n'.join(params['params']).split('\n'))
+    cmd = '&&'.join(';'.join(params['params']).split('\n'))
     output = q.system.process.executeAsync(cmd,argsInCommand=True)
     while output.poll() == None:
         line = output.stdout.readline()
