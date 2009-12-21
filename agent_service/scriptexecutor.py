@@ -1,6 +1,6 @@
 from pymonkey import q
 
-import sys, yaml
+import sys, yaml, os
 from subprocess import Popen, PIPE
 from twisted.internet import reactor
 
@@ -27,7 +27,7 @@ class ScriptExecutor:
         else:
             wrapper_input = {'params':params, 'script':script}
             yaml_wrapper_input = yaml.dump(wrapper_input)
-            proc = Popen([PYTHON_BIN, SCRIPT_WRAPPER_PY], stdout=PIPE, stdin=PIPE)
+            proc = Popen([PYTHON_BIN, SCRIPT_WRAPPER_PY], stdout=PIPE, stdin=PIPE, stderr=PIPE)
             self._processManager.addProcess(proc, fromm, jobguid)
             proc.stdin.write(yaml_wrapper_input)
             proc.stdin.close()
@@ -61,7 +61,8 @@ class ScriptExecutor:
                 if proc_error_code <> 0:
                     errorOutput = "RECEIVED WRONG ERROR CODE FROM WRAPPER: \n" + output
                 else:
-                    index = output.rfind('\n---\n')
+                    find_string = os.linesep + '---' + os.linesep
+                    inex = output.rfind(find_string)
                     if index == -1:
                         errorOutput = "WRAPPER EXITED BEFORE WRITING OUTPUT: \n" + output
                     else:
