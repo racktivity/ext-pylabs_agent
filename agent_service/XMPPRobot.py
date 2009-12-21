@@ -144,14 +144,14 @@ class CommandExecuter(object):
     def _getArgumentsAndOptions(cls, commandInput): 
         args = commandInput.read().split("$")
         argsResult = list()
+        options = list()
         def mod(arg):
             arg = arg[:-1]
             if arg[:1] == '-':
-                return True
+                options.append(arg)                
             else:
-                argsResult.append(arg)
-                return False
+                argsResult.append(arg)                
         
-        options = filter(mod, args)
+        filter(mod, args)
         return argsResult, options
         
