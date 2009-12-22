@@ -91,12 +91,13 @@ class WFLAgent:
             self.taskletEngine.execute(params, tags = ('agent', 'schedule'))
 
     @q.manage.applicationserver.expose
-    def log(self, pid, level, log_message):
+    def log(self, pid, level, message):
+        q.logger.log('DEBUG: WFLAgent.log(pid=%s, level=%s, message=%s)'%(pid, level, message))
         try:
-            log_message = base64.decodestring(log_message)
+            message = base64.decodestring(message)
         except binascii.Error:
-            log_message = log_message
-        self.__agent.log(pid, level, log_message)
+            pass             
+        self.__agent.log(pid=pid, level=level, message=message)
         return True
 
     @q.manage.applicationserver.expose

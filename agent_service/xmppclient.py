@@ -68,12 +68,13 @@ class XMPPClient:
         if self.status <> 'RUNNING':
             raise NotConnectedException()
         
-        q.logger.log("[XMPPCLIENT] Sending message '" + str(id) + "' of type '" + str(type) +"' to " + str(to) + " for " + self.username + "@" + self.server, 5)
+        q.logger.log("[XMPPCLIENT] Sending message [%s] with id: %s'"%(message, str(id)) + "' of type '" + str(type) +"' to " + str(to) + " for " + self.username + "@" + self.server, 5)
         
         elemToSend = domish.Element(('jabber:client','message'), attribs={'to':to+"@"+self.server, 'type':type, 'id':id})
         body = domish.Element((None, 'body'))
         body.addContent(message)
         elemToSend.addContent(body)
+        q.logger.log(elemToSend.toXml(), 6)
         self.xmlstream.send(elemToSend)
     
     def sendPresence(self, to=None, type=None):

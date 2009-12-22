@@ -2,7 +2,7 @@ from  pymonkey import q
 from collections import defaultdict
 import cStringIO
 from functools import partial
-
+import uuid
 
 END_OF_COMMAND = "!"
 
@@ -28,12 +28,15 @@ class TaskletEngineFactory(object):
 class CommandExecuter(object):
 
     
-    def __init__(self, taskletEngineFactory, xmppClient=None):
+    def __init__(self, taskletEngineFactory, xmppClient=None, scriptExecuter=None):
         self._tasknr = 0
         self.tasknrToJID = dict()
         self._history = defaultdict(cStringIO.StringIO) # will contain the accumulated commands for certain user
         self._taskletEngineFactory = taskletEngineFactory
         self._xmppClient = xmppClient
+        self._scriptExecuter = scriptExecuter
+        self._scriptExecuter.setScriptDoneCallback(self._qshellCommandDone)
+        self._scriptExecuter.setScriptDiedCallback(self._qshellCommandDied)
         
         
     def execute(self, fromm, command, id):
@@ -100,7 +103,7 @@ class CommandExecuter(object):
         
         tasknr = self._generateTasknr(fromm)
         if self._xmppClient:
-            self._xmppClient.sendMessage(fromm, 'chat', id, str(tasknr))
+            self._xmppClient.sendMessage(fromm, 'chat', id, tasknr)
           
         params = dict()
         
@@ -110,18 +113,43 @@ class CommandExecuter(object):
         params['options'] = options
         params['tasknr'] = tasknr
         params['from'] = fromm
+        params['executeAsyncQshellCommand'] = partial(self._executeAsyncQshellCommand, fromm, tasknr)
+        
         
         #the following call should be async
         self._taskletEngineFactory.COMMANDS[command](params)
         
-        self._commandExecuted(params, id)
+        #self._commandExecuted(params, id)
         
 
+    def _executeAsyncQshellCommand(self, fromm, tasknr, script, params):
+        if 'executeAsyncQshellCommand' in params:
+            del params['executeAsyncQshellCommand']
+        self._scriptExecuter.execute(fromm, tasknr, params, script)
+        
+    def _qshellCommandDone(self, fromm, tasknr, params):
+        q.logger.log('_qshellCommandDone Command Done from:%s, tasknr:%s, params:%s'%(fromm, tasknr, params), 6)        
+        params['tasknr'] = tasknr
+        self._commandExecuted(params, self.generateXMPPMessageID())
+        
+    def _qshellCommandDied(self, fromm, tasknr, errorcode, erroroutput):
+        q.logger.log('_qshellCommandDied Command Died from:%s, tasknr:%s, errorcode:%s, erroroutput:%s'%(fromm, tasknr, errorcode, erroroutput), 6)
+        params = dict()        
+        params['returnmessage'] = erroroutput
+        params['returncode'] = errorcode
+        params['tasknr'] = tasknr
+        self._commandExecuted(params, self.generateXMPPMessageID())
+        
+        
     def _commandExecuted(self, params, id):
-        output = "!!!%(tasknr)s %(returncode)s \n%(returnmessage)s\n!!!"%{'tasknr':params['tasknr'], 'returncode':params['returncode'], 'returnmessage':params['returnmessage']}
+        returnmessage = "!!!%(tasknr)s %(returncode)s%(returnmessage)s\n!!!"% \
+        {'tasknr':params['tasknr'], 'returncode':params['returncode'], \
+         'returnmessage': '\n%s'%params['returnmessage'] if params['returnmessage'] else ''}
+        q.logger.log('_commandExecuted params:%s, id:%s, returnmessage:%s'%(params, id, returnmessage), 6)        
         fromm = self.tasknrToJID[params['tasknr']]        
         if self._xmppClient:
-            self._xmppClient.sendMessage(fromm, 'chat', id, output)
+            q.logger.log('sending %s to %s'%(returnmessage, fromm), 6)
+            self._xmppClient.sendMessage(fromm, 'chat', id, returnmessage)
         
         if params['tasknr'] in self.tasknrToJID:
             del self.tasknrToJID[params['tasknr']]
@@ -136,9 +164,13 @@ class CommandExecuter(object):
 #            return self._jobIDToTasknr[jobID]
 #        self._tasknr = self._tasknr + 1
 #        self._jobIDToTasknr[jobID] = self._tasknr
-        self._tasknr += 1  
-        self.tasknrToJID[self._tasknr] = fromm     
-        return self._tasknr
+        self._tasknr += 1
+        tasknr = str(self._tasknr)  
+        self.tasknrToJID[tasknr] = fromm     
+        return tasknr
+    
+    def generateXMPPMessageID(self):
+        return str(uuid.uuid1())
         
     @classmethod
     def _getArgumentsAndOptions(cls, commandInput): 

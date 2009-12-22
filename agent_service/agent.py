@@ -6,7 +6,7 @@ from agent_service.scriptexecutor import ScriptExecutor
 from XMPPRobot import *
 from logtarget import XMPPLogTarget
 from collections import defaultdict
-import uuid
+
 
 
 class Agent:
@@ -30,14 +30,12 @@ class Agent:
         self.xmppclient.start()
 
         self.scriptexecutor = ScriptExecutor()
-        self.scriptexecutor.setScriptDoneCallback(self._script_done)
-        self.scriptexecutor.setScriptDiedCallback(self._script_died)
         
         self._tasknr = 0        
         #self._jobIDToTasknr = dict() this is for the production output
         self._jobIDToTasknr = defaultdict(lambda:1)  # this is a temporary, because pidgen generate new id each time 
         self._factory = TaskletEngineFactory()
-        self._commandExecuter = CommandExecuter(self._factory, self.xmppclient)
+        self._commandExecuter = CommandExecuter(self._factory, self.xmppclient, self.scriptexecutor)
         self._xmppLogTarget = XMPPLogTarget(self)
         q.logger.logTargetAdd(self._xmppLogTarget)
         
@@ -74,13 +72,17 @@ class Agent:
     def _script_died(self, fromm, jobguid, errorcode, erroroutput):
         self.xmppclient.sendMessage(fromm, 'agent_error', jobguid, yaml.dump({'errorcode':errorcode, 'erroroutput':erroroutput}))
 
-    def log(self, pid, level, log_message):
-        job = self.scriptexecutor.getJob(pid)
-        if job == None:
-            q.logger.log("[AGENT] Agent '" + self.agentguid + "' lost log info because no job was found for this pid " + str(pid), 4)
+    def log(self, pid=0, tasknr=0, level=5, message=''):
+        q.logger.log('DEBUG: agent.log(pid=%s, tasknr=%s, level=%s, message=%s)'%(pid, tasknr, level, message))
+        tasknr = tasknr or (self.scriptexecutor.getJob(pid)[1] if self.scriptexecutor.getJob(pid) else 0)
+        
+        if not tasknr:
+            q.logger.log("[AGENT] Agent [" + self.agentguid + "] lost log info. invalid arguments tasknr: %s pid: %s"%(tasknr, pid), 4)
         else:
-            (agentcontrollerguid, jobguid) = job
-            self.xmppclient.sendMessage(agentcontrollerguid, 'agent_log', jobguid, yaml.dump({'level':level, 'message':log_message}))
+            #self.xmppclient.sendMessage(agentcontrollerguid, 'agent_log', jobguid, yaml.dump({'level':level, 'message':message}))
+            q.logger.log('DEBUG: log(tasknr:%s, message:%s, level:%s)'%(tasknr, message, level))
+            if tasknr in self._commandExecuter.tasknrToJID:
+                self.xmppclient.sendMessage(self._commandExecuter.tasknrToJID[tasknr], 'chat', self._commandExecuter.generateXMPPMessageID(), '@%s|%s'%(tasknr,message))
 
     def listRunningProcesses(self):
         return str(map(lambda x: x.pid, self.scriptexecutor._processManager.listRunningProcesses()))
@@ -103,13 +105,10 @@ class Agent:
         q.logger.log("[AGENT] Agent '" + self.agentguid + "' received kill from '" + fromm + "' for job '" + jobguid + "'", 5)
         self.scriptexecutor.kill(fromm, jobguid)
         
-    def generateXMPPMessageID(self):
-        return str(uuid.uuid1())
-        
        
     def sendLog(self, tasknr, message):
         q.logger.log('DEBUG: sendLog(tasknr:%s, message:%s)'%(tasknr, message))
-        if int(tasknr) in self._commandExecuter.tasknrToJID:
-            self.xmppclient.sendMessage(self._commandExecuter.tasknrToJID[int(tasknr)], 'chat', self.generateXMPPMessageID(), '@%s|%s'%(tasknr,message))  
+        if tasknr in self._commandExecuter.tasknrToJID:
+            self.xmppclient.sendMessage(self._commandExecuter.tasknrToJID[tasknr], 'chat', self._commandExecuter.generateXMPPMessageID(), '@%s|%s'%(tasknr,message))  
     
         

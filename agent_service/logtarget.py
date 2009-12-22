@@ -3,7 +3,7 @@ import base64
 from pymonkey import q
 
 class AgentLogTarget(object):
-    def __init__(self, serverIp='127.0.0.1', serverPort='8888', serverPath = '/', maxVerbosityLevel=1):
+    def __init__(self, serverIp='127.0.0.1', serverPort='8888', serverPath = '/', maxVerbosityLevel=8):
         self.serverIp = serverIp
         self.serverPort = serverPort
         self.serverPath = serverPath
@@ -32,7 +32,7 @@ class AgentLogTarget(object):
         return True
 
 class XMPPLogTarget(object):
-    def __init__(self, agent,  maxVerbosityLevel=1):
+    def __init__(self, agent,  maxVerbosityLevel=5):
         self._agent = agent 
         self.enabled = True
         self.maxVerbosityLevel = maxVerbosityLevel
@@ -45,7 +45,7 @@ class XMPPLogTarget(object):
         True
 
     def __str__(self):
-        return "AgentControllerLogTarget logging to %s:%s"%(self.serverIp, self.serverPort)
+        return 'XMPPLogTarget'
 
     def ___repr__(self):
         return str(self)
@@ -55,7 +55,7 @@ class XMPPLogTarget(object):
         tags = q.base.tags.getObject(logmsg.tags)
         if tags.tagExists('tasknr'):
             tasknr = tags.tagGet('tasknr')        
-            self._agent.sendLog(tasknr, logmsg.message)
+            self._agent.log(tasknr=tasknr, message=logmsg.message)
         
         return True
 

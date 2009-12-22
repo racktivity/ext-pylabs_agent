@@ -1,5 +1,7 @@
 import sys
 from pymonkey.InitBaseCore import q,i
+print '!!!'
+from logtarget import XMPPLogTarget
 
 sys.path.append(q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver','services'))
 from agent_service.logtarget import AgentLogTarget
@@ -16,12 +18,11 @@ yaml_input = sys.stdin.read()
 input = yaml.load(yaml_input)
 script = input['script']
 params = input['params']
-
-script = base64.decodestring(script)
-
+#script = base64.decodestring(script)
 q.logger.logTargetAdd(AgentLogTarget())
 
 errormessage = None
+
 try:
     # Run the script using the params
     code = compile(script,'<string>','exec')
