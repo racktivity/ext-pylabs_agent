@@ -62,7 +62,7 @@ class ScriptExecutor:
                     errorOutput = "RECEIVED WRONG ERROR CODE FROM WRAPPER: \n" + output
                 else:
                     find_string = os.linesep + '---' + os.linesep
-                    inex = output.rfind(find_string)
+                    index = output.rfind(find_string)
                     if index == -1:
                         errorOutput = "WRAPPER EXITED BEFORE WRITING OUTPUT: \n" + output
                     else:
