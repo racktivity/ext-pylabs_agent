@@ -23,20 +23,41 @@ class ScriptExecutor:
     def setScriptDiedCallback(self, callback):
         self.scriptDiedCallback = callback
 
-    def execute(self, fromm, tasknr, params, script):        
+    def executeQshellCommand(self, fromm, tasknr, params, script, captureOutput, maxLogLevel):        
         q.logger.log('DEBUG: scriptexecuter.exescute: tasknr:%s, script:%s, params:%s '%(tasknr, script, params))
         try:
             if self._processManager.hasJob(fromm, tasknr):
                 q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + tasknr + "' already exists: skipping the job", 3)
             else:            
+                params['maxloglevel'] = maxLogLevel
                 wrapper_input = {'params':params, 'script':script}
                 q.logger.log('DEBUG: before dumping yaml')
                 yaml_wrapper_input = yaml.dump(wrapper_input)
-                q.logger.log('DEBUG: before spawning new process yaml_input:%s, script:%s, params:%s'%(yaml_wrapper_input, script, params))
-                proc = Popen([PYTHON_BIN, SCRIPT_WRAPPER_PY], stdout=PIPE, stdin=PIPE, stderr=PIPE)
+                q.logger.log('DEBUG: before spawning new process yaml_input:%s, script:%s, params:%s'%(yaml_wrapper_input, script, params))                
+#                if captureOutput:
+#                    proc = Popen([PYTHON_BIN, SCRIPT_WRAPPER_PY], stdout=PIPE, stdin=PIPE, stderr=PIPE)
+#                else:
+#                    proc = Popen([PYTHON_BIN, SCRIPT_WRAPPER_PY], stdin=PIPE)
+                #proc = Popen([PYTHON_BIN, SCRIPT_WRAPPER_PY], stdout=PIPE, stdin=PIPE, stderr=PIPE)                
+                proc = q.system.process.executeAsync(PYTHON_BIN, args=[SCRIPT_WRAPPER_PY], argsInCommand=False, useShell=False)
+                proc.captureOutput = captureOutput
+#                if not captureOutput:
+#                    proc.stdout = proc.stderr = None
                 self._processManager.addProcess(proc, fromm, tasknr)
                 proc.stdin.write(yaml_wrapper_input)
                 proc.stdin.close()
+        except Exception, ex:
+            q.logger.log('ERROR: %s'%ex)
+            
+    def executeShellCommand(self, fromm, tasknr, params, script, captureOutput):        
+        q.logger.log('DEBUG: scriptexecuter.executeShellCommand: tasknr:%s, script:%s, params:%s, captureOutput:%s'%(tasknr, script, params, captureOutput))
+        try:
+            if self._processManager.hasJob(fromm, tasknr):
+                q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + tasknr + "' already exists: skipping the job", 3)
+            else:
+                proc = q.system.process.executeAsync(script, argsInCommand=True)
+                proc.captureOutput = captureOutput
+                self._processManager.addProcess(proc, fromm, tasknr)
         except Exception, ex:
             q.logger.log('ERROR: %s'%ex)
 
@@ -57,47 +78,50 @@ class ScriptExecutor:
     def getJob(self, pid):
         return self._processManager.getJob(pid)
 
-    def _checkProgress(self):        
-        try:                
+    def _checkProgress(self):       
+        try:
             for proc in self._processManager.listRunningProcesses():
                 proc_error_code = proc.poll()
-                if proc_error_code <> None:
-                    (agentcontrollerguid, jobguid) = self._processManager.getJob(proc.pid)
-                    output = proc.stdout.read()
-    
-                    errorOutput = None
-                    params = dict()
-                    params['returncode'] = proc_error_code
-    
-                    if proc_error_code <> 0:                        
-                        errorOutput = "RECEIVED WRONG ERROR CODE FROM WRAPPER: \n%s\n%s"%(output, proc.stderr.read())
+                if proc_error_code is None:
+                    continue
+                
+                (agentcontrollerguid, jobguid) = self._processManager.getJob(proc.pid)
+                output = proc.stdout.read() if proc.captureOutput else ''
+                q.logger.log('DEBUG: checkprogress() output:%s'%output)
+                errorOutput = None
+                params = dict()
+                params['returncode'] = proc_error_code
+
+                if proc_error_code <> 0:                        
+                    errorOutput = "RECEIVED WRONG ERROR CODE FROM WRAPPER: \n%s\n%s"%(output, proc.stderr.read() if proc.captureOutput else '')
+                else:
+                    index = output.rfind('\n---\n')
+                    if index == -1:
+                        errorOutput = "WRAPPER EXITED BEFORE WRITING OUTPUT: \n" + output
                     else:
-                        index = output.rfind('\n---\n')
-                        if index == -1:
-                            errorOutput = "WRAPPER EXITED BEFORE WRITING OUTPUT: \n" + output
+                        try:
+                            yaml_output = output[index+5:]
+                            output_object = yaml.load(yaml_output)
+                        except:
+                            errorOutput = "ERROR WHILE PARSING THE WRAPPER OUTPUT: \n" + output
                         else:
-                            try:
-                                yaml_output = output[index+5:]
-                                output_object = yaml.load(yaml_output)
-                            except:
-                                errorOutput = "ERROR WHILE PARSING THE WRAPPER OUTPUT: \n" + output
+                            if 'errormessage' in output_object:
+                                errorOutput = "WRAPPER CAUGHT EXCEPTION IN SCRIPT: \n" + output_object['errormessage']
                             else:
-                                if 'errormessage' in output_object:
-                                    errorOutput = "WRAPPER CAUGHT EXCEPTION IN SCRIPT: \n" + output_object['errormessage']
-                                else:
-                                    params.update(output_object['params'])
-                                    beginindex = output.find('!!!')
-                                    params['returnmessage'] = output[beginindex:index]                                
-                                    self.scriptDoneCallback and self.scriptDoneCallback(agentcontrollerguid, jobguid, params)
-    
-                    if errorOutput <> None:                    
-                        self.scriptDiedCallback and self.scriptDiedCallback(agentcontrollerguid, jobguid, proc_error_code, errorOutput)
-    
-                    self._processManager.processStopped(proc)
-                    #reactor.callLater(2, self._processManager.removeProcess, proc) #Keep it alive for 2 seconds in case logging comes late.
-        except Exception, ex:
-            q.logger.log('ERROR: %s'%ex)            
-        reactor.callLater(0.1, self._checkProgress)
+                                params.update(output_object['params'])
+                                beginindex = 0 or output.find('!!!')
+                                params['returnmessage'] = output[beginindex:index]                                
+                                self.scriptDoneCallback and self.scriptDoneCallback(agentcontrollerguid, jobguid, params)
+
+                if errorOutput <> None:                    
+                    self.scriptDiedCallback and self.scriptDiedCallback(agentcontrollerguid, jobguid, proc_error_code, errorOutput)
+
+                self._processManager.processStopped(proc)
+                reactor.callLater(2, self._processManager.removeProcess, proc) #Keep it alive for 2 seconds in case logging comes late.
+        except:
+            raise
+        finally:            
+            reactor.callLater(0.1, self._checkProgress)
 
 class NoSuchJobException(Exception):
     def __init__(self):

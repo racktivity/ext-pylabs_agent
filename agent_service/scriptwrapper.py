@@ -19,8 +19,8 @@ input = yaml.load(yaml_input)
 script = input['script']
 params = input['params']
 #script = base64.decodestring(script)
-q.logger.logTargetAdd(AgentLogTarget())
-
+q.logger.logTargetAdd(AgentLogTarget(maxVerbosityLevel=int(params['maxloglevel'])))
+q.logger.log('DEBUG: @SCRIPTWRAPPER: maxloglevel:%s'%(params['maxloglevel']))
 errormessage = None
 
 try:

@@ -24,10 +24,11 @@ class AgentLogTarget(object):
 
     def ___repr__(self):
         return str(self)
-
+    
     def log(self, message):
         logmsg = q.logger.getLogObject(message)
         msg = base64.encodestring(logmsg.message)
+        
         self.connection.agent_service.log(self.pid, logmsg.level, msg)
         return True
 
@@ -51,7 +52,7 @@ class XMPPLogTarget(object):
         return str(self)
 
     def log(self, message):
-        logmsg = q.logger.getLogObject(message)
+        logmsg = q.logger.getLogObject(message)        
         tags = q.base.tags.getObject(logmsg.tags)
         if tags.tagExists('tasknr'):
             tasknr = tags.tagGet('tasknr')        

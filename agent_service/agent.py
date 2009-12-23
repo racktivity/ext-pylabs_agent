@@ -73,7 +73,7 @@ class Agent:
         self.xmppclient.sendMessage(fromm, 'agent_error', jobguid, yaml.dump({'errorcode':errorcode, 'erroroutput':erroroutput}))
 
     def log(self, pid=0, tasknr=0, level=5, message=''):
-        q.logger.log('DEBUG: agent.log(pid=%s, tasknr=%s, level=%s, message=%s)'%(pid, tasknr, level, message))
+        q.logger.log('DEBUG: agent.log(pid=%s, tasknr=%s, level=%s, message=%s, jobMapping:%s )'%(pid, tasknr, level, message, self.listRunningProcesses()))
         tasknr = tasknr or (self.scriptexecutor.getJob(pid)[1] if self.scriptexecutor.getJob(pid) else 0)
         
         if not tasknr:
