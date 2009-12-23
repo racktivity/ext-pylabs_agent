@@ -7,9 +7,14 @@ def match(q, i, params, tags):
 
 def main(q, i, params, tags):
     q.logger.log("process list params:%s tags:%s"%(params,tags))
+    cmd = 'tasklist' if q.platform.isWindows() else 'ps -awx'
+    output = q.system.process.executeAsync(cmd, argsInCommand=True)
+    output.wait()
     
-    params["returnmessage"] = 'Successfully executed command process list' 
-    params["returncode"] = 0
-
+    outputMessage = ''.join(output.stdout.readlines())
+    
+    params["returnmessage"] = outputMessage if output.returncode == 0 else ''.join(output.stderr.readlines())
+    params["returncode"] = output.returncode
+    
 
 

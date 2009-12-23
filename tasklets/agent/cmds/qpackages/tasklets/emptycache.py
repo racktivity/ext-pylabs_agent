@@ -6,10 +6,14 @@ def match(q, i, params, tags):
     return params['subcmd'] == 'emptycache'
 
 def main(q, i, params, tags):
-    q.logger.log("qpackages emptycache params:%s tags:%s"%(params,tags))
+    q.logger.log("qpackages emptycache params:%s tags:%s"%(params,tags), tags='tasknr:%s'%params['tasknr'])
     
-    params["returnmessage"] = 'Successfully executed command qpackages emptycache' 
-    params["returncode"] = 0
+    script= \
+"""
+q.system.fs.removeDirTree(q.dirs.packageDir)
+q.logger.log('Packages cache has been emptied Successfully')
+"""
+    params['executeAsyncQshellCommand'](script, params) 
 
 
 

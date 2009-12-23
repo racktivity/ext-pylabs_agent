@@ -8,9 +8,13 @@ def match(q, i, params, tags):
 def main(q, i, params, tags):
     q.logger.log("process hardkill params:%s tags:%s"%(params,tags))
     
-    q.logger.log("tasknr: %s"%params['tasknr'])    
+    q.logger.log("tasknr: %s"%params['tasknr'])
     
-    params["returnmessage"] = 'Successfully executed command process hardkill' 
+    args = params['params']
+    #by default the signal is singal.SIGKILL
+    q.system.process.kill(int(args[0]))    
+    
+    params["returnmessage"] = 'Successfully executed command process hardkill for process %s'%args[0] 
     params["returncode"] = 0
 
 
