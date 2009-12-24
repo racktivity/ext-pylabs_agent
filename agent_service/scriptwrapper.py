@@ -1,7 +1,6 @@
 import sys
 from pymonkey.InitBaseCore import q,i
 print '!!!'
-from logtarget import XMPPLogTarget
 
 sys.path.append(q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver','services'))
 from agent_service.logtarget import AgentLogTarget
