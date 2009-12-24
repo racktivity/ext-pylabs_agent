@@ -117,10 +117,12 @@ class CommandExecuter(object):
         params['executeAsyncShellCommand'] = partial(self._executeAsyncShellCommand, fromm, tasknr)
         
         
-        #the following call should be async
+        # the following call should be async
         self._taskletEngineFactory.COMMANDS[command](params)
         
-        #self._commandExecuted(params, id)
+        # check whehter this tasklet finishes its work
+        if 'returncode' in params:
+            self._commandExecuted(params, id)             
         
 
     def _executeAsyncQshellCommand(self, fromm, tasknr, script, params, captureOutput=True, maxLogLevel=5):
