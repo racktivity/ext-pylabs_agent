@@ -81,6 +81,7 @@ class WFLAgent:
             config.updateConfig()
 
         self.__agent = Agent(config.agentguid, config.xmppserver, config.password, config.agentcontrollerguid, config.hostname, _onSubscribed)
+        
 
 
     if config.cronEnabled:
@@ -109,4 +110,29 @@ class WFLAgent:
         """
         Retrieve the guid of the agent
         """
-        return self.__agent.agentguid
+        return self.__agent.agentJID
+    
+    @q.manage.applicationserver.expose
+    def startScheduler(self, groupName=None):
+        self.__agent.scheduler.start(groupName)        
+    
+    @q.manage.applicationserver.expose
+    def stopScheduler(self, groupName=None):
+        self.__agent.scheduler.stop(groupName)
+        
+    @q.manage.applicationserver.expose
+    def getSchedulerStatus(self, groupName=None):
+        return self.__agent.scheduler.getStatus(groupName)
+
+    @q.manage.applicationserver.expose            
+    def getSchedulerUpTime(self):
+        return self.__agent.scheduler.getUpTime()
+    
+    @q.manage.applicationserver.expose
+    def getParams(self, groupName):
+        return self.__agent.scheduler.getParams(groupName)
+    
+    @q.manage.applicationserver.expose    
+    def setParams(self, groupName, params):
+        self.__agent.scheduler.setParams(groupName, params)
+    

@@ -3,9 +3,12 @@ from pymonkey import q, i
 import yaml
 from agent_service.xmppclient import XMPPClient
 from agent_service.scriptexecutor import ScriptExecutor
+from scheduler import Scheduler
 from XMPPRobot import *
 from logtarget import XMPPLogTarget
 from collections import defaultdict
+
+
 
 
 
@@ -13,6 +16,7 @@ class Agent:
 
     def __init__(self, agentguid, xmppServer, password, agentcontrollerguid, hostname, subscribedCallback=None):
         self.agentguid = agentguid
+        self.agentJID = "%s@%s"%(agentguid, xmppServer)
         self.agentcontrollerguid = agentcontrollerguid
         self.subscribedCallback = subscribedCallback
 
@@ -38,6 +42,8 @@ class Agent:
         self._commandExecuter = CommandExecuter(self._factory, self.xmppclient, self.scriptexecutor)
         self._xmppLogTarget = XMPPLogTarget(self)
         q.logger.logTargetAdd(self._xmppLogTarget)
+        
+        self.scheduler = Scheduler()
         
 
 
