@@ -106,7 +106,7 @@ class WFLAgent:
         return self.__agent.listRunningProcesses()
 
     @q.manage.applicationserver.expose
-    def getAgentJID(self):
+    def get_agent_id(self):
         """
         Retrieve the guid of the agent
         """
