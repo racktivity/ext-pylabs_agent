@@ -17,7 +17,7 @@ class SchedulerClient(object):
         self._proxy.agent_service.stop(groupName)
         
     def getStatus(self, groupName=None):
-        return self._proxy.agent_service.getStatus()
+        return self._proxy.agent_service.getStatus(groupName)
 
     def getUpTime(self):
         return self._proxy.agent_service.getUpTime()

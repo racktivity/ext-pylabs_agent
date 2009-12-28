@@ -122,7 +122,7 @@ class WFLAgent:
         
     @q.manage.applicationserver.expose
     def getStatus(self, groupName=None):
-        return self.__agent.scheduler.getStatus()
+        return self.__agent.scheduler.getStatus(groupName)
 
     @q.manage.applicationserver.expose            
     def getUpTime(self):
