@@ -106,26 +106,26 @@ class WFLAgent:
         return self.__agent.listRunningProcesses()
 
     @q.manage.applicationserver.expose
-    def get_agent_id(self):
+    def getAgentJID(self):
         """
         Retrieve the guid of the agent
         """
-        return self.__agent.agentguid
+        return self.__agent.agentJID
     
     @q.manage.applicationserver.expose
-    def start(self, groupName=None):
+    def startScheduler(self, groupName=None):
         self.__agent.scheduler.start(groupName)        
     
     @q.manage.applicationserver.expose
-    def stop(self, groupName=None):
+    def stopScheduler(self, groupName=None):
         self.__agent.scheduler.stop(groupName)
         
     @q.manage.applicationserver.expose
-    def getStatus(self, groupName=None):
+    def getSchedulerStatus(self, groupName=None):
         return self.__agent.scheduler.getStatus(groupName)
 
     @q.manage.applicationserver.expose            
-    def getUpTime(self):
+    def getSchedulerUpTime(self):
         return self.__agent.scheduler.getUpTime()
     
     @q.manage.applicationserver.expose

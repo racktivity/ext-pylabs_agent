@@ -16,6 +16,7 @@ class Agent:
 
     def __init__(self, agentguid, xmppServer, password, agentcontrollerguid, hostname, subscribedCallback=None):
         self.agentguid = agentguid
+        self.agentJID = "%s@%s"%(agentguid, xmppServer)
         self.agentcontrollerguid = agentcontrollerguid
         self.subscribedCallback = subscribedCallback
 

@@ -11,16 +11,16 @@ class SchedulerClient(object):
         self._proxy = xmlrpclib.ServerProxy('http://%(ip)s:%(port)s/'%{'ip':self._ip, 'port':self._port}, allow_none=True)
         
     def start(self, groupName=None):        
-        self._proxy.agent_service.start(groupName)        
+        self._proxy.agent_service.startScheduler(groupName)        
     
     def stop(self, groupName=None):
-        self._proxy.agent_service.stop(groupName)
+        self._proxy.agent_service.stopScheduler(groupName)
         
     def getStatus(self, groupName=None):
-        return self._proxy.agent_service.getStatus(groupName)
+        return self._proxy.agent_service.getSchedulerStatus(groupName)
 
     def getUpTime(self):
-        return self._proxy.agent_service.getUpTime()
+        return self._proxy.agent_service.getSchedulerUpTime()
     
     def getParams(self, groupName=None):
         return self._proxy.agent_service.getParams(groupName)
