@@ -33,7 +33,7 @@ class Scheduler(object):
         script = """
 import time        
 import xmlrpclib
-taskletEngine = q.getTaskletEngine(q.system.fs.joinPaths('%(schedulerPath)s', '%(groupName)s'))        
+taskletEngine = q.getTaskletEngine(q.system.fs.joinPaths(r'%(schedulerPath)s', '%(groupName)s'))        
 proxy = xmlrpclib.ServerProxy('http://%(ip)s:%(port)s/')        
 
 while True:

@@ -4,7 +4,10 @@ import sys, yaml
 from subprocess import Popen, PIPE
 from twisted.internet import reactor
 
-PYTHON_BIN = q.system.fs.joinPaths(q.dirs.binDir,'python')
+if q.platform.isWindows():
+    PYTHON_BIN = q.system.fs.joinPaths(q.dirs.baseDir, 'lib', 'python2.6', 'python.exe')
+else:
+    PYTHON_BIN = q.system.fs.joinPaths(q.dirs.binDir,'python')
 SCRIPT_WRAPPER_PY = q.system.fs.joinPaths(q.dirs.appDir,'applicationserver', 'services', 'agent_service', 'scriptwrapper.py') 
 
 KILL_BIN = '/bin/kill'
@@ -64,14 +67,14 @@ class ScriptExecutor:
     def stop(self, fromm, jobguid):
         if self._processManager.hasJob(fromm, jobguid):
             proc = self._processManager.getProcess(fromm, jobguid)
-            Popen([KILL_BIN, str(proc.pid)])
+            q.system.process.kill(proc.pid)            
         else:
             q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + jobguid + "' does not exist: cannot stop the job", 3)
 
     def kill(self, fromm, jobguid):
         if self._processManager.hasJob(fromm, jobguid):
             proc = self._processManager.getProcess(fromm, jobguid)
-            Popen([KILL_BIN, '-9', str(proc.pid)])
+            q.system.process.kill(proc.pid)            
         else:
             q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + jobguid + "' does not exist: cannot kill the job", 3)
 
@@ -95,7 +98,7 @@ class ScriptExecutor:
                 if proc_error_code <> 0:                        
                     errorOutput = "RECEIVED WRONG ERROR CODE FROM WRAPPER: \n%s\n%s"%(output, proc.stderr.read() if proc.captureOutput else '')
                 else:
-                    index = output.rfind('\n---\n')
+                    index = output.rfind('---')
                     if index == -1:
                         errorOutput = "WRAPPER EXITED BEFORE WRITING OUTPUT: \n" + output
                     else:
