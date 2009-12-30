@@ -135,4 +135,9 @@ class WFLAgent:
     @q.manage.applicationserver.expose    
     def setParams(self, groupName, params):
         self.__agent.scheduler.setParams(groupName, params)
+        
+    @q.manage.applicationserver.expose            
+    def getAgentUpTime(self):
+        return self.__agent.getUpTime()
+    
     

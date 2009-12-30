@@ -4,8 +4,8 @@ import sys, yaml
 from subprocess import Popen, PIPE
 from twisted.internet import reactor
 
-PYTHON_BIN = '/opt/qbase3/bin/python'
-SCRIPT_WRAPPER_PY = '/opt/qbase3/apps/applicationserver/services/agent_service/scriptwrapper.py'
+PYTHON_BIN = q.system.fs.joinPaths(q.dirs.binDir,'python')
+SCRIPT_WRAPPER_PY = q.system.fs.joinPaths(q.dirs.appDir,'applicationserver', 'services', 'agent_service', 'scriptwrapper.py') 
 
 KILL_BIN = '/bin/kill'
 

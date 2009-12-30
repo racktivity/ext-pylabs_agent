@@ -1,6 +1,7 @@
 from pymonkey import q, i
 
 import yaml
+import time
 from agent_service.xmppclient import XMPPClient
 from agent_service.scriptexecutor import ScriptExecutor
 from scheduler import Scheduler
@@ -10,12 +11,11 @@ from collections import defaultdict
 
 
 
-
-
 class Agent:
 
     def __init__(self, agentguid, xmppServer, password, agentcontrollerguid, hostname, subscribedCallback=None):
-        self.agentguid = agentguid
+        self.agentguid = agentguid        
+        self._startTime = time.time()
         self.agentJID = "%s@%s"%(agentguid, xmppServer)
         self.agentcontrollerguid = agentcontrollerguid
         self.subscribedCallback = subscribedCallback
@@ -115,6 +115,8 @@ class Agent:
     def sendLog(self, tasknr, message):
         q.logger.log('DEBUG: sendLog(tasknr:%s, message:%s)'%(tasknr, message))
         if tasknr in self._commandExecuter.tasknrToJID:
-            self.xmppclient.sendMessage(self._commandExecuter.tasknrToJID[tasknr], 'chat', self._commandExecuter.generateXMPPMessageID(), '@%s|%s'%(tasknr,message))  
-    
-        
+            self.xmppclient.sendMessage(self._commandExecuter.tasknrToJID[tasknr], 'chat', self._commandExecuter.generateXMPPMessageID(), '@%s|%s'%(tasknr,message))
+            
+    def getUpTime(self):
+        return time.time() - self._startTime      
+
