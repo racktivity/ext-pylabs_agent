@@ -2,6 +2,7 @@ from pymonkey import q, i
 from agent_service.agent import Agent
 import base64
 import binascii
+import xmpp
 
 
 class AgentConfig:
@@ -9,17 +10,20 @@ class AgentConfig:
         """
         Initialize configuration
         """
-        add = False
+#        add = False
         if 'main' in i.config.agent.list():
             config = i.config.agent.getConfig('main')
-        else:
-            add = True
-            con = i.config.cloudApiConnection.find('main')
-            config = con.machine.registerAgent(self._getMacaddress(con))['result']
+            self._setConfig(config)
+            if not 'registerd' in i.config.agent.getConfig('main'):
+                self.registerAgent(config)
+#        else:
+#            add = True
+#            con = i.config.cloudApiConnection.find('main')
+#            config = con.machine.registerAgent(self._getMacaddress(con))['result']
 
-        self._setConfig(config)
+#        self._setConfig(config)
         
-        if add:i.config.agent.add('main', self._getConfig())
+#        if add:i.config.agent.add('main', self._getConfig())
 
 
     def _setConfig(self, config):
@@ -35,6 +39,7 @@ class AgentConfig:
         self.agentcontrollerguid = config['agentcontrollerguid']
         self.subscribed = config['subscribed'] if 'subscribed' in config else None
         self.cronEnabled = config['enable_cron'] == 'True' if 'enable_cron' in config else False
+        self.registered = config['registered'] if 'registered' in config else None
 
     def _getMacaddress(self, con):
         """
@@ -57,6 +62,7 @@ class AgentConfig:
         config['agentcontrollerguid'] = self.agentcontrollerguid
         config['subscribed'] = self.subscribed
         config['enable_cron'] = self.cronEnabled
+        config['registered'] = self.registered
         return config
 
     def updateConfig(self):
@@ -64,6 +70,34 @@ class AgentConfig:
         Update agent config file
         """
         i.config.agent.configure('main', self._getConfig())
+        
+    
+    def registerAgent(self, config):
+        client = xmpp.Client(config['xmppserver'])
+        if not client.connect():
+            raise RuntimeError('Failed to connect to xmppserver %s'%config['xmppserver'])
+        
+        def _registered(conn, event):
+            if event.getType() == 'result' and int(event.getID()) == 2:
+                config['registered'] = True
+                self.updateConfig()
+            elif event.getType() != 'result':
+                raise RuntimeError('Failed to register agent with config %s with xmppserver %s. Reason %s'%(config, config['xmppserver'], event.getBody()))
+        try:    
+            client.RegisterHandler('iq', _registered)
+            iq = xmpp.Iq('get', xmpp.NS_REGISTER)
+            client.send(iq)
+            q.logger.log('[AGENT] calling client.Process')
+            client.Process(1)
+            q.logger.log('[AGENT] after calling calling client.Process')
+            iq = xmpp.Iq('set', xmpp.NS_REGISTER)
+            iq.T.query.NT.username = config['agentguid']
+            iq.T.query.NT.password = config['password']
+            client.send(iq)
+            client.Process(1)
+        except Exception, ex:
+            raise RuntimeError('Failed to register agent with config %s with xmppserver %s. Reason: %s'%(config, config['xmppserver'], ex))
+        q.logger.log('[AGENT]:agent with guid %s registered successfully with xmppserver %s'%(config['agentguid'], config['xmppserver']))
 
 
 config = AgentConfig()
