@@ -10,20 +10,11 @@ class AgentConfig:
         """
         Initialize configuration
         """
-#        add = False
         if 'main' in i.config.agent.list():
             config = i.config.agent.getConfig('main')
             self._setConfig(config)
-            if not 'registerd' in i.config.agent.getConfig('main'):
+            if not 'registered' in i.config.agent.getConfig('main'):
                 self.registerAgent(config)
-#        else:
-#            add = True
-#            con = i.config.cloudApiConnection.find('main')
-#            config = con.machine.registerAgent(self._getMacaddress(con))['result']
-
-#        self._setConfig(config)
-        
-#        if add:i.config.agent.add('main', self._getConfig())
 
 
     def _setConfig(self, config):
