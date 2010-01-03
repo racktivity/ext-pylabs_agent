@@ -13,11 +13,15 @@ class SchedulerClient(object):
     def stop(self, groupName=None):
         self._proxy.agent_service.stopScheduler(groupName)
         
-    def getStatus(self, groupName=None):
-        return self._proxy.agent_service.getSchedulerStatus(groupName)
+    def getStatus(self, groupName=None, includeHalted=False):
+        return self._proxy.agent_service.getSchedulerStatus(groupName, includeHalted)
 
     def getUpTime(self):
         return self._proxy.agent_service.getSchedulerUpTime()
     
     def getParams(self, groupName=None):
-        return self._proxy.agent_service.getParams(groupName)
+        return self._proxy.agent_service.getSchedulerParams(groupName)
+    
+    def listGroups(self):
+        return self._proxy.agent_service.listSchedulerGroups()
+    

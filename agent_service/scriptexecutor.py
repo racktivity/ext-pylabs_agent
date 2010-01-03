@@ -14,11 +14,12 @@ KILL_BIN = '/bin/kill'
 
 class ScriptExecutor:
 
-    def __init__(self):
+    def __init__(self, checkProgress=True):
         self.scriptDoneCallback = None
         self.scriptDiedCallback = None
         self._processManager = ProcessManager()
-        self._checkProgress()
+        if checkProgress:
+            self._checkProgress()
 
     def setScriptDoneCallback(self, callback):
         self.scriptDoneCallback = callback
@@ -37,15 +38,8 @@ class ScriptExecutor:
                 q.logger.log('DEBUG: before dumping yaml')
                 yaml_wrapper_input = yaml.dump(wrapper_input)
                 q.logger.log('DEBUG: before spawning new process yaml_input:%s, script:%s, params:%s'%(yaml_wrapper_input, script, params))                
-#                if captureOutput:
-#                    proc = Popen([PYTHON_BIN, SCRIPT_WRAPPER_PY], stdout=PIPE, stdin=PIPE, stderr=PIPE)
-#                else:
-#                    proc = Popen([PYTHON_BIN, SCRIPT_WRAPPER_PY], stdin=PIPE)
-                #proc = Popen([PYTHON_BIN, SCRIPT_WRAPPER_PY], stdout=PIPE, stdin=PIPE, stderr=PIPE)                
                 proc = q.system.process.executeAsync(PYTHON_BIN, args=[SCRIPT_WRAPPER_PY], argsInCommand=False, useShell=False)
                 proc.captureOutput = captureOutput
-#                if not captureOutput:
-#                    proc.stdout = proc.stderr = None
                 self._processManager.addProcess(proc, fromm, tasknr)
                 proc.stdin.write(yaml_wrapper_input)
                 proc.stdin.close()
@@ -64,19 +58,19 @@ class ScriptExecutor:
         except Exception, ex:
             q.logger.log('ERROR: %s'%ex)
 
-    def stop(self, fromm, jobguid):
-        if self._processManager.hasJob(fromm, jobguid):
-            proc = self._processManager.getProcess(fromm, jobguid)
+    def stop(self, fromm, tasknr):
+        if self._processManager.hasJob(fromm, tasknr):
+            proc = self._processManager.getProcess(fromm, tasknr)
             q.system.process.kill(proc.pid)            
         else:
-            q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + jobguid + "' does not exist: cannot stop the job", 3)
+            q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + tasknr + "' does not exist: cannot stop the job", 3)
 
-    def kill(self, fromm, jobguid):
-        if self._processManager.hasJob(fromm, jobguid):
-            proc = self._processManager.getProcess(fromm, jobguid)
+    def kill(self, fromm, tasknr):
+        if self._processManager.hasJob(fromm, tasknr):
+            proc = self._processManager.getProcess(fromm, tasknr)
             q.system.process.kill(proc.pid)            
         else:
-            q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + jobguid + "' does not exist: cannot kill the job", 3)
+            q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + tasknr + "' does not exist: cannot kill the job", 3)
 
     def getJob(self, pid):
         return self._processManager.getJob(pid)
@@ -88,7 +82,7 @@ class ScriptExecutor:
                 if proc_error_code is None:
                     continue
                 
-                (agentcontrollerguid, jobguid) = self._processManager.getJob(proc.pid)
+                (fromm, tasknr) = self._processManager.getJob(proc.pid)
                 output = proc.stdout.read() if proc.captureOutput else ''
                 q.logger.log('DEBUG: checkprogress() output:%s'%output)
                 errorOutput = None
@@ -114,10 +108,10 @@ class ScriptExecutor:
                                 params.update(output_object['params'])
                                 beginindex = 0 or output.find('!!!')
                                 params['returnmessage'] = output[beginindex:index]                                
-                                self.scriptDoneCallback and self.scriptDoneCallback(agentcontrollerguid, jobguid, params)
+                                self.scriptDoneCallback and self.scriptDoneCallback(fromm, tasknr, params)
 
                 if errorOutput <> None:                    
-                    self.scriptDiedCallback and self.scriptDiedCallback(agentcontrollerguid, jobguid, proc_error_code, errorOutput)
+                    self.scriptDiedCallback and self.scriptDiedCallback(fromm, tasknr, proc_error_code, errorOutput)
 
                 self._processManager.processStopped(proc)
                 reactor.callLater(2, self._processManager.removeProcess, proc) #Keep it alive for 2 seconds in case logging comes late.
@@ -137,11 +131,12 @@ class ProcessManager:
         self.__pidMapping = {}
         self.__jobMapping = {}
 
-    def addProcess(self, proc, fromm, jobguid):
+    def addProcess(self, proc, fromm, tasknr):
         self.__runningProcesses.append(proc)
-        procInfo = (proc, fromm, jobguid)
+        procInfo = (proc, fromm, tasknr)
         self.__pidMapping[proc.pid] = procInfo
-        self.__jobMapping[self.__getJobId(fromm, jobguid)] = procInfo
+        q.logger.log('DEBUG: Starting process with pid:%s'%proc.pid)
+        self.__jobMapping[self.__getJobId(fromm, tasknr)] = procInfo
 
     def processStopped(self, proc):
         '''
@@ -159,11 +154,11 @@ class ProcessManager:
     def listRunningProcesses(self):
         return self.__runningProcesses
 
-    def hasJob(self, fromm, jobguid):
-        return self.__getJobId(fromm, jobguid) in self.__jobMapping
+    def hasJob(self, fromm, tasknr):
+        return self.__getJobId(fromm, tasknr) in self.__jobMapping
 
-    def getProcess(self, fromm, jobguid):
-        return self.__jobMapping.get(self.__getJobId(fromm, jobguid))[0]
+    def getProcess(self, fromm, tasknr):
+        return self.__jobMapping.get(self.__getJobId(fromm, tasknr))[0]
 
     def getJob(self, pid):
         if self.__pidMapping.get(pid) <> None:
@@ -171,5 +166,5 @@ class ProcessManager:
         else:
             return None
 
-    def __getJobId(self, fromm, jobguid):
-        return fromm + '@' + jobguid;
+    def __getJobId(self, fromm, tasknr):
+        return fromm + '@' + tasknr;

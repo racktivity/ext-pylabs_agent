@@ -1,7 +1,7 @@
 from pymonkey import q, i
 from agent_service.scriptexecutor import ScriptExecutor
 from pymonkey.inifile import IniFile
-
+import itertools
 import time
 import yaml
 
@@ -10,18 +10,25 @@ class Scheduler(object):
     def __init__(self):
         self._startTime = time.time()
         self._schedularPath =  q.system.fs.joinPaths(q.dirs.appDir, "scheduler")
-        self._scriptexecutor = ScriptExecutor()
+        self._scriptexecutor = ScriptExecutor(checkProgress=False)
         self._tasknr = 0
         self._groupNameToTasknr = dict()        
         self._groupNameToParams = dict()
-        self._ip = q.config.getConfig('applicationserver')['main']['xmlrpc_ip']
-        portAsString = q.config.getConfig('applicationserver')['main']['xmlrpc_port']
-        self._port = int(portAsString) if portAsString else 0
-    
+        
+        try:
+            self._ip = q.config.getConfig('applicationserver')['main']['xmlrpc_ip']
+            self._port= int(q.config.getConfig('applicationserver')['main']['xmlrpc_port'])
+        except:
+            raise RuntimeError("Error while reading application server IP/Port from config")
+        
     def start(self, groupName=None):        
-        if groupName == None: # means that we want to start all the groupNames
+        if not groupName: # means that we want to start all the groupNames
             q.system.fswalker.walk(self._schedularPath, callback=self._startGroup, includeFolders=True, recursive=False)
         else:
+            if groupName not in self.listGroups():
+                q.logger.log('ERROR: Group:%s does not exist'%groupName)
+                return
+            
             self._startGroup(None, q.system.fs.joinPaths(self._schedularPath, groupName))
         
     def _startGroup(self, arg, groupPath):
@@ -29,7 +36,8 @@ class Scheduler(object):
         if  groupName in self._groupNameToTasknr:
             q.logger.log('Process:%s is already running'%groupName)
             return
-            
+        
+        
         script = """
 import time        
 import xmlrpclib
@@ -39,7 +47,7 @@ proxy = xmlrpclib.ServerProxy('http://%(ip)s:%(port)s/')
 while True:
     taskletEngine.execute(params,tags=('%(groupName)s',))
     # send updated params to our scheduler through xmlrpc
-    proxy.agent_service.setParams('%(groupName)s', params)
+    proxy.agent_service.setSchedulerParams('%(groupName)s', params)
     if 'break' in params:
         params['break'] = False 
     time.sleep(10)
@@ -51,18 +59,20 @@ while True:
         self._scriptexecutor.executeQshellCommand(groupName, tasknr, params, script, captureOutput=True, maxLogLevel=5)        
         self._groupNameToTasknr[groupName] = tasknr
         self._groupNameToParams[groupName] = params
+
     
     def stop(self, groupName=None):
-        if groupName == None:
+        if groupName:
+            self._stopGroup(groupName)
+        else:
             groupNames = self._groupNameToTasknr.keys()
             for groupName in groupNames:
                 self._stopGroup(groupName)
-        else:
-            self._stopGroup(groupName)    
         
     
     def _stopGroup(self, groupName):
         if groupName not in self._groupNameToTasknr:
+            q.logger.log("WARNING: group name %s is not started")
             return
     
         tasknr = self._groupNameToTasknr[groupName]            
@@ -70,29 +80,42 @@ while True:
         del self._groupNameToTasknr[groupName]
         del self._groupNameToParams[groupName]
     
-    def getStatus(self, groupName=None):        
-        if groupName == None:
-            status = dict()
-            for groupPath in q.system.fswalker.find(self._schedularPath, recursive=False, includeFolders=True):
-                groupName = q.system.fs.getBaseName(groupPath)
-                status[groupName] = 'Running' if groupName in self._groupNameToParams else 'Halted'
-            return status 
+    
+    def getStatus(self, groupName=None, includeHalted=False):        
+        if groupName:
+            if groupName in self.listGroups():
+                status= {groupName: 'Running' if groupName in self._groupNameToParams else 'Halted' }
+            else:
+                q.logger.log('WARNING: group name %s does not exist'%groupName)
+                status = dict()
+        elif includeHalted:
+            groups = self.listGroups()
+            status = dict(zip(groups, map(lambda group: 'Running' if group in self._groupNameToParams else 'Halted', groups)))
         else:
-            return 'Running' if groupName in self._groupNameToParams else 'Halted'        
+            running = self._groupNameToTasknr.keys()
+            status = dict(zip(running, itertools.repeat('Running', len(running))))
+        return status
+    
+    
+    def listGroups(self):
+        return map(q.system.fs.getBaseName, q.system.fswalker.find(self._schedularPath, recursive=False, includeFolders=True))
+        
     
     def getUpTime(self):
         return time.time() - self._startTime
     
     def getParams(self, groupName):
         if groupName not in self._groupNameToParams:
-            raise RuntimeError("Process:%s is not running"%groupName)
+            q.logger.log('ERROR: Process:%s is not running'%groupName)
+            return dict()
         
         return self._groupNameToParams[groupName]
     
     def setParams(self, groupName, params):
         q.logger.log('DEBUG setParam(groupName:%s, params:%s)'%(groupName, params))
         if groupName not in self._groupNameToParams:
-            raise RuntimeError("Process:%s is not running"%groupName)
+            q.logger.log('ERROR: Process:%s is not running'%groupName)
+            return            
     
         self._groupNameToParams[groupName] = params
     
@@ -100,23 +123,9 @@ while True:
         self._tasknr +=1 
         return str(self._tasknr)
     
-    def _getInitialParams(self, groupName):
-        
-        def parseParam(value):            
-            if not value.count(',') == 0 : # can be array
-                elements = value.split(',')
-                subValue = list()
-                for element in elements:
-                    subValue.append(parseParam(element))     
-                return subValue
-            else:                            
-                try:
-                    num = int(value)
-                    return num
-                except:
-                    return value                
-            
+    def _getInitialParams(self, groupName):              
         params = dict()
+        #if both files exist, the Yaml file supersedes the ini
         paramsYaml =  q.system.fs.joinPaths(q.dirs.cfgDir, 'scheduler', groupName, 'params.yaml')
         paramsIni =  q.system.fs.joinPaths(q.dirs.cfgDir, 'scheduler', groupName, 'params.ini')
         if q.system.fs.exists(paramsYaml):            
@@ -125,8 +134,7 @@ while True:
         elif q.system.fs.exists(paramsIni):
             file = IniFile(paramsIni)
             params = file.getFileAsDict()['main']
-            for key in params:
-                params[key] = parseParam(params[key])
-            return params
-                                
+            for key, val in params.iteritems():
+                params[key] = eval('(%s)'%val)
+
         return params

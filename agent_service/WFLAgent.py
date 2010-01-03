@@ -146,19 +146,23 @@ class WFLAgent:
         self.__agent.scheduler.stop(groupName)
         
     @q.manage.applicationserver.expose
-    def getSchedulerStatus(self, groupName=None):
-        return self.__agent.scheduler.getStatus(groupName)
+    def getSchedulerStatus(self, groupName=None, includeHalted=False):
+        return self.__agent.scheduler.getStatus(groupName, includeHalted)
+
+    @q.manage.applicationserver.expose
+    def listSchedulerGroups(self):
+        return self.__agent.scheduler.listGroups()
 
     @q.manage.applicationserver.expose            
     def getSchedulerUpTime(self):
         return self.__agent.scheduler.getUpTime()
     
     @q.manage.applicationserver.expose
-    def getParams(self, groupName):
+    def getSchedulerParams(self, groupName):
         return self.__agent.scheduler.getParams(groupName)
     
     @q.manage.applicationserver.expose    
-    def setParams(self, groupName, params):
+    def setSchedulerParams(self, groupName, params):
         self.__agent.scheduler.setParams(groupName, params)
         
     @q.manage.applicationserver.expose            
