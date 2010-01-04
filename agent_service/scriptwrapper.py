@@ -1,6 +1,6 @@
 import sys
 from pymonkey.InitBaseCore import q,i
-print '!!!'
+print '@@@',
 
 sys.path.append(q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver','services'))
 from agent_service.logtarget import AgentLogTarget
@@ -18,7 +18,9 @@ input = yaml.load(yaml_input)
 script = input['script']
 params = input['params']
 #script = base64.decodestring(script)
-q.logger.logTargetAdd(AgentLogTarget(maxVerbosityLevel=int(params['maxloglevel'])))
+
+if 'scheduler_param_useAgentLogger' not in params:
+    q.logger.logTargetAdd(AgentLogTarget(maxVerbosityLevel=int(params['maxloglevel'])))
 q.logger.log('DEBUG: @SCRIPTWRAPPER: maxloglevel:%s'%(params['maxloglevel']))
 errormessage = None
 
@@ -32,6 +34,7 @@ try:
 
 except:
     errormessage = traceback.format_exc()
+    q.logger.log('Exception occurred while executing the script: %s'%errormessage)
 
 # Construct the return message
 returnobject = {"params":params}

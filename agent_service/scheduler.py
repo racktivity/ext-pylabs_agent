@@ -36,29 +36,20 @@ class Scheduler(object):
         if  groupName in self._groupNameToTasknr:
             q.logger.log('Process:%s is already running'%groupName)
             return
+               
+        script = open(q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver', 'services', 'agent_service','schedulerLoop.py')).read()                
+        self._groupNameToParams[groupName] = params = self._getInitialParams(groupName)
+        params.update({'scheduler_param_schedulerPath' : self._schedularPath,
+        'scheduler_param_groupName' : groupName, 
+        'scheduler_param_ip' : self._ip,
+        'scheduler_param_port':self._port,
+        'scheduler_param_useAgentLogger' : False})
         
-        
-        script = """
-import time        
-import xmlrpclib
-taskletEngine = q.getTaskletEngine(q.system.fs.joinPaths(r'%(schedulerPath)s', '%(groupName)s'))        
-proxy = xmlrpclib.ServerProxy('http://%(ip)s:%(port)s/')        
-
-while True:
-    taskletEngine.execute(params,tags=('%(groupName)s',))
-    # send updated params to our scheduler through xmlrpc
-    proxy.agent_service.setSchedulerParams('%(groupName)s', params)
-    if 'break' in params:
-        params['break'] = False 
-    time.sleep(10)
-"""% {'schedulerPath':self._schedularPath, 'groupName':groupName, 'ip':self._ip, 'port':self._port}         
-        params = self._getInitialParams(groupName)
         params['break'] = False
         tasknr = self._generateTasknr()
         q.logger.log("DEBUG Scheduler start groupName:%s script:%s, tasknr:%s"% (groupName, script, tasknr))
         self._scriptexecutor.executeQshellCommand(groupName, tasknr, params, script, captureOutput=True, maxLogLevel=5)        
         self._groupNameToTasknr[groupName] = tasknr
-        self._groupNameToParams[groupName] = params
 
     
     def stop(self, groupName=None):

@@ -88,27 +88,33 @@ class ScriptExecutor:
                 errorOutput = None
                 params = dict()
                 params['returncode'] = proc_error_code
+                beginindex = output.find('@@@') if proc.captureOutput else -1
+                isQshellCommand = beginindex != -1  
 
                 if proc_error_code <> 0:                        
                     errorOutput = "RECEIVED WRONG ERROR CODE FROM WRAPPER: \n%s\n%s"%(output, proc.stderr.read() if proc.captureOutput else '')
                 else:
-                    index = output.rfind('---')
-                    if index == -1:
-                        errorOutput = "WRAPPER EXITED BEFORE WRITING OUTPUT: \n" + output
-                    else:
-                        try:
-                            yaml_output = output[index+5:]
-                            output_object = yaml.load(yaml_output)
-                        except:
-                            errorOutput = "ERROR WHILE PARSING THE WRAPPER OUTPUT: \n" + output
+                    if isQshellCommand:
+                        index = output.rfind('\n---\n')
+                        if index == -1:
+                            errorOutput = "WRAPPER EXITED BEFORE WRITING OUTPUT: \n" + output
                         else:
-                            if 'errormessage' in output_object:
-                                errorOutput = "WRAPPER CAUGHT EXCEPTION IN SCRIPT: \n" + output_object['errormessage']
+                            try:
+                                yaml_output = output[index+5:]
+                                output_object = yaml.load(yaml_output)
+                            except:
+                                errorOutput = "ERROR WHILE PARSING THE WRAPPER OUTPUT: \n" + output
                             else:
-                                params.update(output_object['params'])
-                                beginindex = 0 or output.find('!!!')
-                                params['returnmessage'] = output[beginindex:index]                                
-                                self.scriptDoneCallback and self.scriptDoneCallback(fromm, tasknr, params)
+                                if 'errormessage' in output_object:
+                                    errorOutput = "WRAPPER CAUGHT EXCEPTION IN SCRIPT: \n" + output_object['errormessage']
+                                else:                                
+                                    params.update(output_object['params'])                                
+                                    beginindex = (beginindex + 3) if beginindex != -1 else 0
+                                    params['returnmessage'] = output[beginindex:index]                                
+                                    self.scriptDoneCallback and self.scriptDoneCallback(fromm, tasknr, params)
+                    else: # captureOutput = True and this is Shell Command
+                        params['returnmessage'] = output                                
+                        self.scriptDoneCallback and self.scriptDoneCallback(fromm, tasknr, params)
 
                 if errorOutput <> None:                    
                     self.scriptDiedCallback and self.scriptDiedCallback(fromm, tasknr, proc_error_code, errorOutput)

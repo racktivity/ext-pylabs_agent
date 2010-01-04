@@ -130,7 +130,7 @@ class CommandExecuter(object):
             del params['executeAsyncQshellCommand']
         if 'executeAsyncShellCommand' in params:
             del params['executeAsyncShellCommand']
-        self._scriptExecuter.executeQshellCommand(fromm, tasknr, params, script, captureOutput, maxLogLevel)
+        self._scriptExecuter.executeQshellCommand(fromm, tasknr, params, script, captureOutput=captureOutput, maxLogLevel=maxLogLevel)
         
         
     def _executeAsyncShellCommand(self, fromm, tasknr, script, params, captureOutput=True):        
