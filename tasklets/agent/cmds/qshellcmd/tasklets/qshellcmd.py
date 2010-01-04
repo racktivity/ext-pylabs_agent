@@ -11,7 +11,6 @@ def main(q, i, params, tags):
     captureOutput = '-no' not in params['options']
     logLevelOption = filter(lambda x : x[:2]== '-l', params['options'])    
     script = '\n'.join(params['params'])
-    q.logger.log("DEBUG: before executing the qshell command(s)")
     if logLevelOption:
         params['executeAsyncQshellCommand'](script, params, captureOutput, int(logLevelOption[0][2:]))
     else:

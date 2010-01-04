@@ -41,7 +41,6 @@ class CommandExecuter(object):
         
     def execute(self, fromm, command, id):
         # command parsing
-        q.logger.log("DEBUG: execute(fromm:%s, command:%s, id:%s)"%(fromm, command, id))
         try:
             if command == END_OF_COMMAND: # now we are ready to execute the accumulated command for this user                
                 commandInput = self._history[fromm]                
@@ -56,11 +55,9 @@ class CommandExecuter(object):
                         self._executeMultipleLineCommand(fromm, fullCommand, id)
                     else:
                         # append this command to user's accumulated command
-                        q.logger.log('DEBUG: add %s to buffer from: %s'%(command, fromm))
                         self._history[fromm].writelines("%s\n"%command);
                 else:
                     # append this command to user's accumulated command
-                    q.logger.log('DEBUG: append %s to buffer from: %s'%(command, fromm))
                     self._history[fromm].writelines("%s\n"%command);
                 
         except Exception, ex:
@@ -89,7 +86,6 @@ class CommandExecuter(object):
         
         # first line will contain the command name
         commandInput.seek(0)
-        q.logger.log('DEBUG _executeMultipleLineCommand from:%s , commandInput:%s'%(fromm, commandInput.getvalue()))                                
         commandLine = commandInput.readline().replace('!','',1).split()
         
         

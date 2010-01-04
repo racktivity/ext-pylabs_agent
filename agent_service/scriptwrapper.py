@@ -21,7 +21,6 @@ params = input['params']
 
 if 'scheduler_param_useAgentLogger' not in params:
     q.logger.logTargetAdd(AgentLogTarget(maxVerbosityLevel=int(params['maxloglevel'])))
-q.logger.log('DEBUG: @SCRIPTWRAPPER: maxloglevel:%s'%(params['maxloglevel']))
 errormessage = None
 
 try:

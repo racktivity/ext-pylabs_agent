@@ -78,15 +78,13 @@ class Agent:
     def _script_died(self, fromm, jobguid, errorcode, erroroutput):
         self.xmppclient.sendMessage(fromm, 'agent_error', jobguid, yaml.dump({'errorcode':errorcode, 'erroroutput':erroroutput}))
 
-    def log(self, pid=0, tasknr=0, level=5, message=''):
-        q.logger.log('DEBUG: agent.log(pid=%s, tasknr=%s, level=%s, message=%s, jobMapping:%s )'%(pid, tasknr, level, message, self.listRunningProcesses()))
+    def log(self, pid=0, tasknr=0, level=5, message=''):        
         tasknr = tasknr or (self.scriptexecutor.getJob(pid)[1] if self.scriptexecutor.getJob(pid) else 0)
         
         if not tasknr:
             q.logger.log("[AGENT] Agent [" + self.agentguid + "] lost log info. invalid arguments tasknr: %s pid: %s"%(tasknr, pid), 4)
         else:
-            #self.xmppclient.sendMessage(agentcontrollerguid, 'agent_log', jobguid, yaml.dump({'level':level, 'message':message}))
-            q.logger.log('DEBUG: log(tasknr:%s, message:%s, level:%s)'%(tasknr, message, level))
+            #self.xmppclient.sendMessage(agentcontrollerguid, 'agent_log', jobguid, yaml.dump({'level':level, 'message':message}))            
             if tasknr in self._commandExecuter.tasknrToJID:
                 self.xmppclient.sendMessage(self._commandExecuter.tasknrToJID[tasknr], 'chat', self._commandExecuter.generateXMPPMessageID(), '@%s|%s'%(tasknr,message))
 
@@ -112,8 +110,7 @@ class Agent:
         self.scriptexecutor.kill(fromm, jobguid)
         
        
-    def sendLog(self, tasknr, message):
-        q.logger.log('DEBUG: sendLog(tasknr:%s, message:%s)'%(tasknr, message))
+    def sendLog(self, tasknr, message):        
         if tasknr in self._commandExecuter.tasknrToJID:
             self.xmppclient.sendMessage(self._commandExecuter.tasknrToJID[tasknr], 'chat', self._commandExecuter.generateXMPPMessageID(), '@%s|%s'%(tasknr,message))
             

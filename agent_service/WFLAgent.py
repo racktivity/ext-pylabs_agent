@@ -118,7 +118,6 @@ class WFLAgent:
 
     @q.manage.applicationserver.expose
     def log(self, pid, level, message):
-        q.logger.log('DEBUG: WFLAgent.log(pid=%s, level=%s, message=%s)'%(pid, level, message))
         try:
             message = base64.decodestring(message)
         except binascii.Error:

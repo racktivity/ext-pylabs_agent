@@ -46,8 +46,7 @@ class Scheduler(object):
         'scheduler_param_useAgentLogger' : False})
         
         params['break'] = False
-        tasknr = self._generateTasknr()
-        q.logger.log("DEBUG Scheduler start groupName:%s script:%s, tasknr:%s"% (groupName, script, tasknr))
+        tasknr = self._generateTasknr()        
         self._scriptexecutor.executeQshellCommand(groupName, tasknr, params, script, captureOutput=True, maxLogLevel=5)        
         self._groupNameToTasknr[groupName] = tasknr
 
@@ -102,8 +101,7 @@ class Scheduler(object):
         
         return self._groupNameToParams[groupName]
     
-    def setParams(self, groupName, params):
-        q.logger.log('DEBUG setParam(groupName:%s, params:%s)'%(groupName, params))
+    def setParams(self, groupName, params):        
         if groupName not in self._groupNameToParams:
             q.logger.log('ERROR: Process:%s is not running'%groupName)
             return            

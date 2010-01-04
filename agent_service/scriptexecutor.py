@@ -27,17 +27,15 @@ class ScriptExecutor:
     def setScriptDiedCallback(self, callback):
         self.scriptDiedCallback = callback
 
-    def executeQshellCommand(self, fromm, tasknr, params, script, captureOutput, maxLogLevel):        
-        q.logger.log('DEBUG: scriptexecuter.exescute: tasknr:%s, script:%s, params:%s '%(tasknr, script, params))
+    def executeQshellCommand(self, fromm, tasknr, params, script, captureOutput, maxLogLevel):       
+        
         try:
             if self._processManager.hasJob(fromm, tasknr):
                 q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + tasknr + "' already exists: skipping the job", 3)
             else:            
                 params['maxloglevel'] = maxLogLevel
                 wrapper_input = {'params':params, 'script':script}
-                q.logger.log('DEBUG: before dumping yaml')
                 yaml_wrapper_input = yaml.dump(wrapper_input)
-                q.logger.log('DEBUG: before spawning new process yaml_input:%s, script:%s, params:%s'%(yaml_wrapper_input, script, params))                
                 proc = q.system.process.executeAsync(PYTHON_BIN, args=[SCRIPT_WRAPPER_PY], argsInCommand=False, useShell=False)
                 proc.captureOutput = captureOutput
                 self._processManager.addProcess(proc, fromm, tasknr)
@@ -47,7 +45,6 @@ class ScriptExecutor:
             q.logger.log('ERROR: %s'%ex)
             
     def executeShellCommand(self, fromm, tasknr, params, script, captureOutput):        
-        q.logger.log('DEBUG: scriptexecuter.executeShellCommand: tasknr:%s, script:%s, params:%s, captureOutput:%s'%(tasknr, script, params, captureOutput))
         try:
             if self._processManager.hasJob(fromm, tasknr):
                 q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + tasknr + "' already exists: skipping the job", 3)
@@ -84,7 +81,6 @@ class ScriptExecutor:
                 
                 (fromm, tasknr) = self._processManager.getJob(proc.pid)
                 output = proc.stdout.read() if proc.captureOutput else ''
-                q.logger.log('DEBUG: checkprogress() output:%s'%output)
                 errorOutput = None
                 params = dict()
                 params['returncode'] = proc_error_code
@@ -141,7 +137,6 @@ class ProcessManager:
         self.__runningProcesses.append(proc)
         procInfo = (proc, fromm, tasknr)
         self.__pidMapping[proc.pid] = procInfo
-        q.logger.log('DEBUG: Starting process with pid:%s'%proc.pid)
         self.__jobMapping[self.__getJobId(fromm, tasknr)] = procInfo
 
     def processStopped(self, proc):
