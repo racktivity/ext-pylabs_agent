@@ -15,14 +15,10 @@ class AgentConfig:
             add = True
             con = i.config.cloudApiConnection.find('main')
             mac = self._getMacaddress(con)
-            q.logger.log('registerAgent PRE %r %r'%(con,mac))
-            try:
-                config = con.machine.registerAgent(mac)['result']
-            except Exception,e:
-                q.logger.log('registerAgent Exception %r'%e)
-            q.logger.log('registerAgent POST %r'%config)
-            if not 'hostname' in config:
-                config['hostname']=config['xmppserver']
+
+            config = con.machine.registerAgent(mac)['result']
+
+            config['hostname']=config.get('hostname', config['xmppserver'])
             config['xmppserver']=con._server
             q.logger.log('registerAgent UPDATE %r'%config)
 
@@ -39,7 +35,7 @@ class AgentConfig:
         self.agentguid = config['agentguid']
         self.xmppserver = config['xmppserver']
         self.password = config['password']
-        self.hostname = config['hostname'] if 'hostname' in config else self.xmppserver
+        self.hostname = config.get('hostname',self.xmppserver)
         self.agentcontrollerguid = config['agentcontrollerguid']
         self.subscribed = config['subscribed'] if 'subscribed' in config else None
         self.cronEnabled = config['enable_cron'] == 'True' if 'enable_cron' in config else False
