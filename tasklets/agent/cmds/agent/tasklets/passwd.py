@@ -2,7 +2,6 @@ __tags__ = "agent"
 __priority__ = 2
 
 
-import xmpp 
 
 def match(q, i, params, tags):
     q.logger.log("agent passwd newpassword:%s tags:%s"%(params,tags))
@@ -16,31 +15,25 @@ def main(q, i, params, tags):
     
     if 'main' in i.config.agent.list():
             config = i.config.agent.getConfig('main')
-            username = config['agentguid']
+            username = config['agentname']
+            domain = configp['domain']
             password = config['password']
-            domain = config['xmppserver'] or config['hostname']
     else:
         raise RuntimeError('No configuration found for agent')
     
     config['password'] = args[0]
     
-    client = xmpp.Client(domain)
-    if not client.connect():
-        raise RuntimeError('Failed to connect to the xmppserver %s, check if the server is up and running'%domain)
-    
-    try:
-        client.auth(username, password)
-    except Exception, ex:
-        raise RuntimeError('Failed to connect to the xmppserver %s with JID %s@%s and password %s'%(domain, username, domain, password))
-    
-    
-    iq = xmpp.Iq('set', xmpp.NS_REGISTER)
-    iq.T.query.NT.username = username
-    iq.T.query.NT.password = args[0]
-    try:
-        client.send(iq)
-    except Exception, ex:
-        raise RuntimeError('Failed to change password for agent with JID %s@%s. Reason: %s'(username, domain, ex.message))
+    xmppserverList = i.config.agent.list()
+    if 'main' in xmppserverList:
+        xmppserverList.pop(xmppserverList.index('main'))
+    for xmppserver in xmppserverList:
+        agentJID = '%s@%s'%(username, domain)
+        try:
+            xmppclient = q.clients.xmpp.getConnection(agentJID, password, xmppserver)
+            xmppclient.changePassword(args[0])
+        except Excption, ex:
+            q.logger.log('Failed to change password for agent %s on server %s. Reason: %s'%(agentJID, xmppserver, ex), 5)
+        q.logger.log('Password for agent %s on server changed Successfully'%(agentJID, xmppserver), 5)
     
     i.config.agent.configure('main', config)
 #    the following call hangs the application server
