@@ -18,12 +18,12 @@ class XMPPClient:
     timeOut, the connection will be closed and the disconnectedCallback will be called. 
     '''
     
-    def __init__(self, username, server, password, hostname, timeOut=5):
+    def __init__(self, username, server, password, domain, timeOut=5):
         self.username = username
         self.server = server
         self.password = password
         self.timeOut = timeOut
-        self.hostname = hostname
+        self.domain = domain
         self.xmpp_user = None
 
         self.status = 'NOT_CONNECTED'
@@ -70,7 +70,7 @@ class XMPPClient:
         
         q.logger.log("[XMPPCLIENT] Sending message [%s] with id: %s'"%(message, str(id)) + "' of type '" + str(type) +"' to " + str(to) + " for " + self.username + "@" + self.server, 5)
         
-        elemToSend = domish.Element(('jabber:client','message'), attribs={'to':to+"@"+self.server, 'type':type, 'id':id})
+        elemToSend = domish.Element(('jabber:client','message'), attribs={'to':to+"@"+self.domain, 'type':type, 'id':id})
         body = domish.Element((None, 'body'))
         body.addContent(message)
         elemToSend.addContent(body)
@@ -90,7 +90,7 @@ class XMPPClient:
         q.logger.log("[XMPPCLIENT] Sending presence of type '" + str(type) +"' to " + str(to) + "'", 5)
         
         attribs={}
-        if to <> None: attribs['to'] =  to+"@"+self.server
+        if to <> None: attribs['to'] =  to+"@"+self.domain
         if type <> None: attribs['type'] = type
         
         presence = domish.Element(('jabber:client','presence'), attribs=attribs)
@@ -142,8 +142,8 @@ class XMPPClient:
     def _connect(self):
         self.status = 'CONNECTING'
        
-        if self.hostname != None:
-            self.xmpp_user = self.username+"@"+self.hostname
+        if self.domain != None:
+            self.xmpp_user = self.username+"@"+self.domain
         else:
             self.xmpp_user = self.username+"@"+self.server
 
@@ -157,6 +157,7 @@ class XMPPClient:
 
         def _do_connect():
             self.connector = SRVConnector(reactor,'xmpp-client' ,self.server, c)
+            self.connector.servers = [self.server]
             self.connector.pickServer =  lambda: (self.server, 5222)
             self.connector.connect()
     
@@ -186,7 +187,7 @@ class XMPPClient:
         self.sendPresence()
         
         if self.connectedCallback:
-            self.connectedCallback()
+            self.connectedCallback(self.server)
     
     def _presence_received(self, elem):
         fromm = elem.getAttribute('from').split("@")[0]
@@ -198,7 +199,7 @@ class XMPPClient:
         q.logger.log("[XMPPCLIENT] Presence received from '" + fromm + "' of type '" + type +"'", 5)
         
         if self.presenceReceivedCallback:
-            self.presenceReceivedCallback(fromm, type)                
+            self.presenceReceivedCallback(fromm, type, self.server)                
     
     def _message_received(self, elem):
         fromm = elem.getAttribute('from').split("@")[0]
@@ -216,7 +217,7 @@ class XMPPClient:
         q.logger.log("[XMPPCLIENT] Message '" + str(id) + "' of type '" + str(type) +"'" + "' received from '" + fromm + "'", 5)
 
         if self.messageReceivedCallback:
-            self.messageReceivedCallback(fromm, type, id, message)
+            self.messageReceivedCallback(fromm, type, id, message, self.server)
 
     def _init_failed(self, failure):
         self._disconnected('Init failed ' + str(failure))

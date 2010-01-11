@@ -28,43 +28,44 @@ class TaskletEngineFactory(object):
 class CommandExecuter(object):
 
     
-    def __init__(self, taskletEngineFactory, xmppClient=None, scriptExecuter=None):
+    def __init__(self, taskletEngineFactory, xmppClients=None, scriptExecuter=None):
         self._tasknr = 0
-        self.tasknrToJID = dict()
+        self._tasknrToJID = dict()
         self._history = defaultdict(cStringIO.StringIO) # will contain the accumulated commands for certain user
         self._taskletEngineFactory = taskletEngineFactory
-        self._xmppClient = xmppClient
+        self._xmppClients = xmppClients
         self._scriptExecuter = scriptExecuter
         self._scriptExecuter.setScriptDoneCallback(self._qshellCommandDone)
         self._scriptExecuter.setScriptDiedCallback(self._qshellCommandDied)
         
         
-    def execute(self, fromm, command, id):
+    def execute(self, fromm, command, id, xmppServer):
         # command parsing
+        q.logger.log('DEBUG: %s, %s, %s, %s'%(fromm, command, id, xmppServer))
         try:
             if command == END_OF_COMMAND: # now we are ready to execute the accumulated command for this user                
-                commandInput = self._history[fromm]                
-                self._executeMultipleLineCommand(fromm, commandInput, id)                
+                commandInput = self._history[(fromm, xmppServer)]                
+                self._executeMultipleLineCommand(fromm, commandInput, id, xmppServer)                
             else:
-                if fromm not in self._history:
+                if (fromm, xmppServer) not in self._history:
                     if not command.startswith('!'):#we are waiting for a start of commands, and rubbish is received
                         q.logger.log('received invalid message %s while waiting for a new command'%command)                        
                     elif command.endswith('\n%s'%END_OF_COMMAND): # full command
                         fullCommand = cStringIO.StringIO()
                         fullCommand.writelines("%s\n"%command[:-2])
-                        self._executeMultipleLineCommand(fromm, fullCommand, id)
+                        self._executeMultipleLineCommand(fromm, fullCommand, id, xmppServer)
                     else:
                         # append this command to user's accumulated command
-                        self._history[fromm].writelines("%s\n"%command);
+                        self._history[(fromm, xmppServer)].writelines("%s\n"%command);
                 else:
                     # append this command to user's accumulated command
-                    self._history[fromm].writelines("%s\n"%command);
+                    self._history[(fromm, xmppServer)].writelines("%s\n"%command);
                 
         except Exception, ex:
             q.logger.log(ex)            
             # reset the history for this command
-            if fromm in self._history:
-                del self._history[fromm]
+            if (fromm, xmppServer) in self._history:
+                del self._history[(fromm, xmppServer)]
             raise ex
         finally:
             return None
@@ -72,7 +73,7 @@ class CommandExecuter(object):
             
             
     
-    def _executeMultipleLineCommand(self, fromm, commandInput, id):
+    def _executeMultipleLineCommand(self, fromm, commandInput, id, xmppServer):
         """
         we will execute the lines of each command
         e.g 
@@ -97,9 +98,9 @@ class CommandExecuter(object):
         
         args, options= CommandExecuter._getArgumentsAndOptions(commandInput)
         
-        tasknr = self._generateTasknr(fromm)
-        if self._xmppClient:
-            self._xmppClient.sendMessage(fromm, 'chat', id, tasknr)
+        tasknr = self._generateTasknr(fromm, xmppServer)
+        if self._xmppClients[xmppServer]:
+            self._xmppClients[xmppServer].sendMessage(fromm, 'chat', id, tasknr)
           
         params = dict()
         
@@ -151,28 +152,33 @@ class CommandExecuter(object):
         {'tasknr':params['tasknr'], 'returncode':params['returncode'], \
          'returnmessage': '\n%s'%params['returnmessage'] if params['returnmessage'] else ''}
         q.logger.log('_commandExecuted params:%s, id:%s, returnmessage:%s'%(params, id, returnmessage), 6)        
-        fromm = self.tasknrToJID[params['tasknr']]        
-        if self._xmppClient:
+        fromm, xmppServer = self._tasknrToJID[params['tasknr']]       
+        if self._xmppClients[xmppServer]:
             q.logger.log('sending %s to %s'%(returnmessage, fromm), 6)
-            self._xmppClient.sendMessage(fromm, 'chat', id, returnmessage)
+            self._xmppClients[xmppServer].sendMessage(fromm, 'chat', id, returnmessage)
         
-        if params['tasknr'] in self.tasknrToJID:
-            del self.tasknrToJID[params['tasknr']]
+        if params['tasknr'] in self._tasknrToJID:
+            del self._tasknrToJID[params['tasknr']]
     
         # reset the history for this command
-        if fromm in self._history:
-            del self._history[fromm]        
+        if (fromm, xmppServer) in self._history:
+            del self._history[(fromm, xmppServer)]        
         
     # return the output of execution
-    def _generateTasknr(self, fromm, jobID=None):
-#        if jobID in self._jobIDToTasknr:
-#            return self._jobIDToTasknr[jobID]
-#        self._tasknr = self._tasknr + 1
-#        self._jobIDToTasknr[jobID] = self._tasknr
+    def _generateTasknr(self, fromm, xmppServer,jobID=None):
         self._tasknr += 1
         tasknr = str(self._tasknr)  
-        self.tasknrToJID[tasknr] = fromm     
+        self._tasknrToJID[tasknr] = (fromm, xmppServer)     
         return tasknr
+    
+    def getJIDFromTasknr(self, tasknr):
+        return self._tasknrToJID[tasknr][0]
+    
+    def getXmppServerFromTasknr(self, tasknr):
+        return self._tasknrToJID[tasknr][1]
+    
+    def getTaskNrs(self):
+        return self._tasknrToJID.keys()
     
     def generateXMPPMessageID(self):
         return str(uuid.uuid1())
