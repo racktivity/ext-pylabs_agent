@@ -29,11 +29,12 @@ def main(q, i, params, tags):
     for xmppserver in xmppserverList:
         agentJID = '%s@%s'%(username, domain)
         try:
-            xmppclient = q.clients.xmpp.getConnection(agentJID, password, xmppserver)
+            xmppclient = q.clients.xmpp.getConnection(agentJID, password, xmppserver.replace('_', '.'))
             xmppclient.changePassword(args[0])
         except Exception, ex:
-            q.logger.log('Failed to change password for agent %s on server %s. Reason: %s'%(agentJID, xmppserver, ex), 5)
-        q.logger.log('Password for agent %s on server changed Successfully'%(agentJID, xmppserver), 5)
+            q.logger.log('Failed to change password for agent %s on server %s. Reason: %s'%(agentJID, xmppserver.replace('_', '.'), ex), 5)
+        else:
+            q.logger.log('Password for agent %s on server %s changed Successfully'%(agentJID, xmppserver.replace('_', '.')), 5)
     
     i.config.agent.configure('main', config)
 #    the following call hangs the application server
