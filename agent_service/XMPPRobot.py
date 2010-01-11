@@ -41,7 +41,6 @@ class CommandExecuter(object):
         
     def execute(self, fromm, command, id, xmppServer):
         # command parsing
-        q.logger.log('DEBUG: %s, %s, %s, %s'%(fromm, command, id, xmppServer))
         try:
             if command == END_OF_COMMAND: # now we are ready to execute the accumulated command for this user                
                 commandInput = self._history[(fromm, xmppServer)]                

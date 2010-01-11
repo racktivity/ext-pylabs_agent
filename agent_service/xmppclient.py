@@ -70,7 +70,7 @@ class XMPPClient:
         
         q.logger.log("[XMPPCLIENT] Sending message [%s] with id: %s'"%(message, str(id)) + "' of type '" + str(type) +"' to " + str(to) + " for " + self.username + "@" + self.server, 5)
         
-        elemToSend = domish.Element(('jabber:client','message'), attribs={'to':to+"@"+self.domain, 'type':type, 'id':id})
+        elemToSend = domish.Element(('jabber:client','message'), attribs={'to':to, 'type':type, 'id':id})
         body = domish.Element((None, 'body'))
         body.addContent(message)
         elemToSend.addContent(body)
@@ -202,7 +202,7 @@ class XMPPClient:
             self.presenceReceivedCallback(fromm, type, self.server)                
     
     def _message_received(self, elem):
-        fromm = elem.getAttribute('from').split("@")[0]
+        fromm = elem.getAttribute('from')
         type = elem.getAttribute('type')
         id = elem.getAttribute('id')
 
