@@ -31,7 +31,7 @@ def main(q, i, params, tags):
         try:
             xmppclient = q.clients.xmpp.getConnection(agentJID, password, xmppserver)
             xmppclient.changePassword(args[0])
-        except Excption, ex:
+        except Exception, ex:
             q.logger.log('Failed to change password for agent %s on server %s. Reason: %s'%(agentJID, xmppserver, ex), 5)
         q.logger.log('Password for agent %s on server changed Successfully'%(agentJID, xmppserver), 5)
     
