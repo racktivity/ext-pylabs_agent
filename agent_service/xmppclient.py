@@ -96,17 +96,6 @@ class XMPPClient:
         presence = domish.Element(('jabber:client','presence'), attribs=attribs)
         self.xmlstream.send(presence)
     
-    def _presence_received(self, elem):
-        fromm = elem.getAttribute('from').split("@")[0]
-        if not elem.hasAttribute('type'):
-            type = 'available'
-        else:
-            type = elem.getAttribute('type')
-            
-        q.logger.log("[XMPPCLIENT] Presence received from '" + fromm + "' of type '" + type +"'", 5)
-        
-        if self.presenceReceivedCallback:
-            self.presenceReceivedCallback(fromm, type)                
     
     def setMessageReceivedCallback(self, callback):
         '''
