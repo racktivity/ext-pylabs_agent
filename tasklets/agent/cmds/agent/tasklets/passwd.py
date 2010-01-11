@@ -16,7 +16,7 @@ def main(q, i, params, tags):
     if 'main' in i.config.agent.list():
             config = i.config.agent.getConfig('main')
             username = config['agentname']
-            domain = configp['domain']
+            domain = config['domain']
             password = config['password']
     else:
         raise RuntimeError('No configuration found for agent')
