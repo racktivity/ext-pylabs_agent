@@ -96,6 +96,10 @@ class WFLAgent:
             params['agentguid'] = self.__agent.agentguid
             self.taskletEngine.execute(params, tags = ('agent', 'schedule'))
 
+    @q.manage.applicationserver.cronjob(60)
+    def keep_alive(self):
+        self.__agent.keep_alive()
+
     @q.manage.applicationserver.expose
     def log(self, pid, level, log_message):
         try:

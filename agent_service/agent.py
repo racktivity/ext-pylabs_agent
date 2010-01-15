@@ -28,6 +28,9 @@ class Agent:
         self.scriptexecutor.setScriptDoneCallback(self._script_done)
         self.scriptexecutor.setScriptDiedCallback(self._script_died)
 
+    def keep_alive(self):
+        self.xmppclient.keep_alive()
+
     def _message_received(self, fromm, type, id, message):
         if fromm == self.agentcontrollerguid:
             if type == 'start':
@@ -39,7 +42,7 @@ class Agent:
             else:
                 q.logger.log("[AGENT] Agent '" + self.agentguid + "' received message with unknown type: '" + type + "' from the agent controller.", 4)
         else:
-            q.logger.log("[AGENT] Agent '" + self.agentguid + "' received message from agent '" + agentguid + "', nothing done: not the agent controller.", 5)
+            q.logger.log("[AGENT] Agent '" + self.agentguid + "' received message from agent '" + fromm + "', nothing done: not the agent controller.", 5)
 
     def _presence_received(self, fromm, type):
         if fromm == self.agentcontrollerguid:
@@ -70,7 +73,7 @@ class Agent:
             self.xmppclient.sendMessage(agentcontrollerguid, 'agent_log', jobguid, yaml.dump({'level':level, 'message':log_message}))
 
     def listRunningProcesses(self):
-        return str(map(lambda x: x.pid, self.scriptexecutor._processManager.listRunningProcesses()))
+        return map(lambda x: x.pid, self.scriptexecutor._processManager.listRunningProcesses())
 
     def _executeScript(self, fromm, jobguid, message):
         q.logger.log("[AGENT] Agent '" + self.agentguid + "' received script from '" + fromm + "' for job '" + jobguid + "'", 5)
