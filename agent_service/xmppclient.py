@@ -191,7 +191,7 @@ class XMPPClient:
         if self.connectedCallback:
             self.connectedCallback()
 
-    def _keep_alive(self):
+    def keep_alive(self):
         self.sendMessage(self.username, 'keepalive', 'keepalive')
 
     def _presence_received(self, elem):
