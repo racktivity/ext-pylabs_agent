@@ -131,6 +131,7 @@ class WFLAgent:
 
     if config.cronEnabled:
         @q.manage.applicationserver.cronjob(config.interval)
+        @initializationCheck
         def run_scheduled(self):
             params = dict()
             params['agentguid'] = self.__agent.agentname
