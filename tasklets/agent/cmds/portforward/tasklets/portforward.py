@@ -4,18 +4,18 @@ __priority__ = 1
 
 fScriptMain = \
 """
-client = q.clients.ssh.createClient('%s', '%s' , '%s' , 10)
+connection  = q.remote.system.connect('%s', '%s' , '%s')
 %s
 """
 
 rScript = \
 """
-client.forwardRemotePort(%d, '%s', %d)
+connection.portforward.forwardRemotePort(%d, '%s', %d)
 """
 
 lScript = \
 """
-client.forwardLocalPort(%d, '%s', %d)
+connection.portforward.forwardLocalPort(%d, '%s', %d)
 """
 
 def match(q, i, params, tags):
