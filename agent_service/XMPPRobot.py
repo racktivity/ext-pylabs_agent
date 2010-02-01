@@ -111,6 +111,8 @@ class CommandExecuter(object):
         params['from'] = fromm
         params['executeAsyncQshellCommand'] = partial(self._executeAsyncQshellCommand, fromm, tasknr)
         params['executeAsyncShellCommand'] = partial(self._executeAsyncShellCommand, fromm, tasknr)
+        params['killTask'] = partial(self._killTask, fromm)
+        params['stopTask'] = partial(self._stopTask, fromm)
         
         
         # the following call should be async
@@ -126,11 +128,21 @@ class CommandExecuter(object):
             del params['executeAsyncQshellCommand']
         if 'executeAsyncShellCommand' in params:
             del params['executeAsyncShellCommand']
+        if 'killTask' in params:
+            del params['killTask']
+        if 'stopTask' in params:
+            del params['stopTask']
         self._scriptExecuter.executeQshellCommand(fromm, tasknr, params, script, captureOutput=captureOutput, maxLogLevel=maxLogLevel)
         
         
     def _executeAsyncShellCommand(self, fromm, tasknr, script, params, captureOutput=True):        
         self._scriptExecuter.executeShellCommand(fromm, tasknr, params, script, captureOutput)
+    
+    def _stopTask(self, fromm, tasknr):
+        return self._scriptExecuter.stop(fromm, tasknr)
+    
+    def _killTask(self, fromm, tasknr):
+        return self._scriptExecuter.kill(fromm, tasknr)
         
     def _qshellCommandDone(self, fromm, tasknr, params):
         q.logger.log('_qshellCommandDone Command Done from:%s, tasknr:%s, params:%s'%(fromm, tasknr, params), 6)        

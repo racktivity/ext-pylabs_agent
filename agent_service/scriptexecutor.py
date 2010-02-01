@@ -1,8 +1,8 @@
 from pymonkey import q
-
 import sys, yaml
 from subprocess import Popen, PIPE
 from twisted.internet import reactor
+import signal, time
 
 if q.platform.isWindows():
     PYTHON_BIN = q.system.fs.joinPaths(q.dirs.baseDir, 'lib', 'python2.6', 'python.exe')
@@ -10,7 +10,6 @@ else:
     PYTHON_BIN = q.system.fs.joinPaths(q.dirs.binDir,'python')
 SCRIPT_WRAPPER_PY = q.system.fs.joinPaths(q.dirs.appDir,'applicationserver', 'services', 'agent_service', 'scriptwrapper.py') 
 
-KILL_BIN = '/bin/kill'
 
 class ScriptExecutor:
 
@@ -58,16 +57,31 @@ class ScriptExecutor:
     def stop(self, fromm, tasknr):
         if self._processManager.hasJob(fromm, tasknr):
             proc = self._processManager.getProcess(fromm, tasknr)
-            q.system.process.kill(proc.pid)            
+            q.logger.log('stopping process with pid: %s'% proc.pid)
+            q.system.process.kill(proc.pid, signal.SIGSTOP)   
+            for i in range(1,6):                
+                if  q.system.process.isPidAlive(proc.pid):
+                    time.sleep(2)
+                    q.system.process.kill(proc.pid, signal.SIGSTOP)
+                else:
+                    break
+            if  q.system.process.isPidAlive(proc.pid):
+                return False       
+                     
         else:
             q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + tasknr + "' does not exist: cannot stop the job", 3)
+            return False;
+        return True 
 
     def kill(self, fromm, tasknr):
         if self._processManager.hasJob(fromm, tasknr):
             proc = self._processManager.getProcess(fromm, tasknr)
+            q.logger.log('killing process with pid: %s'% proc.pid)
             q.system.process.kill(proc.pid)            
+            return True
         else:
             q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + tasknr + "' does not exist: cannot kill the job", 3)
+            return False
 
     def getJob(self, pid):
         return self._processManager.getJob(pid)

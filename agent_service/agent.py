@@ -70,11 +70,6 @@ class Agent:
         else:
             q.logger.log("[AGENT] Agent '" + self.agentname + "' received presence from agent '" + fromm + "', nothing done: not the agentcontroller.", 5)
 
-#    def _script_done(self, fromm, jobguid, params):
-#        self.xmppclient.sendMessage(fromm, 'agent_done', jobguid, yaml.dump(params))
-#
-#    def _script_died(self, fromm, jobguid, errorcode, erroroutput):
-#        self.xmppclient.sendMessage(fromm, 'agent_error', jobguid, yaml.dump({'errorcode':errorcode, 'erroroutput':erroroutput}))
 
     def log(self, pid=0, tasknr=0, level=5, message=''):        
         tasknr = tasknr or (self.scriptexecutor.getJob(pid)[1] if self.scriptexecutor.getJob(pid) else 0)
@@ -89,28 +84,6 @@ class Agent:
     def listRunningProcesses(self):
         return str(map(lambda x: x.pid, self.scriptexecutor._processManager.listRunningProcesses()))
 
-#    def _executeScript(self, fromm, jobguid, message):
-#        q.logger.log("[AGENT] Agent '" + self.agentname + "' received script from '" + fromm + "' for job '" + jobguid + "'", 5)
-#
-#        try:
-#            messageobject = yaml.load(message)
-#        except yaml.parser.ParserError:
-#            q.logger.log("[AGENT] Agent '" + self.agentname + "' failed to parse the message from '" + fromm + "' for job '" + jobguid + "'", 3)
-#        else:
-#            self.scriptexecutor.execute(fromm, jobguid, messageobject["params"], messageobject["script"])
-#
-#    def _stopScript(self, fromm, jobguid):
-#        q.logger.log("[AGENT] Agent '" + self.agentname + "' received stop from '" + fromm + "' for job '" + jobguid + "'", 5)
-#        self.scriptexecutor.stop(fromm, jobguid)
-#
-#    def _killScript(self, fromm, jobguid):
-#        q.logger.log("[AGENT] Agent '" + self.agentname + "' received kill from '" + fromm + "' for job '" + jobguid + "'", 5)
-#        self.scriptexecutor.kill(fromm, jobguid)
-        
-       
-#    def sendLog(self, tasknr, message):        
-#        if tasknr in self._commandExecuter.tasknrToJID:
-#            self.xmppclient.sendMessage(self._commandExecuter.tasknrToJID[tasknr], 'chat', self._commandExecuter.generateXMPPMessageID(), '@%s|%s'%(tasknr,message))
             
     def getUpTime(self):
         return time.time() - self._startTime      
