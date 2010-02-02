@@ -15,10 +15,11 @@ def main(q, i, params, tags):
             config = i.config.agent.getConfig('main')
             username = config['agentname']
             password = config['password']
+            domain = config['domain']
     else:
         raise RuntimeError('No configuration found for agent')
     
-    q.agent.register(args, 'dmachine.office.aserver.com', username, password)            
+    q.agent.register(args, domain, username, password)            
 
     params["returnmessage"] = 'Successfully executed command agent register'
     params["returncode"] = 0
