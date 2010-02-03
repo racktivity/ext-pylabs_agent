@@ -1,6 +1,7 @@
 import os, xmlrpclib
 import base64
 from pymonkey import q
+from pymonkey.logging.LogObject import LogObject
 
 class AgentLogTarget(object):
     def __init__(self, serverIp='127.0.0.1', serverPort='8888', serverPath = '/', maxVerbosityLevel=8):
@@ -26,7 +27,8 @@ class AgentLogTarget(object):
         return str(self)
     
     def log(self, message):
-        logmsg = q.logger.getLogObject(message)
+        #logmsg = q.logger.getLogObject(message)
+        logmsg = LogObject(message)
         msg = base64.encodestring(logmsg.message)
         
         self.connection.agent_service.log(self.pid, logmsg.level, msg)
@@ -52,7 +54,8 @@ class XMPPLogTarget(object):
         return str(self)
 
     def log(self, message):
-        logmsg = q.logger.getLogObject(message)        
+        #logmsg = q.logger.getLogObject(message)
+        logmsg = LogObject(message)        
         tags = q.base.tags.getObject(logmsg.tags)
         if tags.tagExists('tasknr'):
             tasknr = tags.tagGet('tasknr')        
