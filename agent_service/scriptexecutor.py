@@ -35,14 +35,14 @@ class ScriptExecutor:
     def stop(self, fromm, jobguid):
         if self._processManager.hasJob(fromm, jobguid):
             proc = self._processManager.getProcess(fromm, jobguid)
-            q.system.process.kill(str(proc.pid), signal.SIGSTOP)
+            q.system.process.kill(proc.pid, signal.SIGSTOP)
         else:
             q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + jobguid + "' does not exist: cannot stop the job", 3)
 
     def kill(self, fromm, jobguid):
         if self._processManager.hasJob(fromm, jobguid):
             proc = self._processManager.getProcess(fromm, jobguid)
-            q.system.process.kill(str(proc.pid))
+            q.system.process.kill(proc.pid)
         else:
             q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + jobguid + "' does not exist: cannot kill the job", 3)
 
