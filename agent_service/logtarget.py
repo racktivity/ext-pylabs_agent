@@ -8,7 +8,7 @@ class AgentLogTarget(object):
         self.serverIp = serverIp
         self.serverPort = serverPort
         self.serverPath = serverPath
-        self.maxVerbosityLevel = maxVerbosityLevel
+        self.maxlevel = maxVerbosityLevel
         self.connection = xmlrpclib.ServerProxy('http://%s:%s%s/'%(self.serverIp, self.serverPort, self.serverPath))
         self.pid = os.getpid()
         self.enabled = True
