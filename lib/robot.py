@@ -154,10 +154,7 @@ class Robot(object):
         for groupName, taskletEngine in self.COMMANDS.items():
             result[groupName] = taskletEngine.find(tags = tags)
         q.logger.log('Search results are %s'%result, 5)
-        return result
-        
-            
-        
+        return result          
         
     
     def killTask(self, tasknumber):

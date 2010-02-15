@@ -24,10 +24,10 @@ import unittest
 from pymonkey import q, i
 
 # should be able to import the module without doing the following
-import sys, os
-
-parentFolder = q.system.fs.getDirName(__file__)[:-1]
-sys.path.append(q.system.fs.joinPaths(parentFolder[:parentFolder.rindex(os.sep)], 'lib'))
+#import sys, os
+#
+#parentFolder = q.system.fs.getDirName(__file__)[:-1]
+#sys.path.append(q.system.fs.joinPaths(parentFolder[:parentFolder.rindex(os.sep)], 'lib'))
 
 from robot import Robot
 
