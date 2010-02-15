@@ -28,9 +28,6 @@ from xmppclient import *
 class dummyConnection:
     _sock = sys.stdin
 
-
-
-
 class XMPPMessageHandlerTestCase(unittest.TestCase):
     def setUp(self):
         self.commandMessage0 = """!agent register

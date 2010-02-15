@@ -82,14 +82,8 @@ class XMPPClient(object):
     
     def _connect(self):
         self.status = 'CONNECTING'        
-        q.logger.log("[XMPPCLIENT] Connecting to server %s with xmpp user %s'" % (self.server, self.userJID) )
-        
-        try:        
-            self._client.connect((self.server, self.port))
-        except Exception, ex:
-            q.logger.log('[XMPPCLIENT] Exception occured: %s while connecting to server:%s'%(ex, self.server))
-            return False
-        
+        q.logger.log("[XMPPCLIENT] Connecting to server %s with xmpp user %s'" % (self.server, self.userJID) )        
+        self._client.connect((self.server, self.port))        
         if not self._client.connected:
             q.logger.log('[XMPPCLIENT] Failed to connect to server:%s, port:%s'%(self.server, self.port))
             return False
@@ -97,7 +91,6 @@ class XMPPClient(object):
             #authenticated
             self.status = 'RUNNING'
             q.logger.log("[XMPPCLIENT] Server '%s' authenticated user '%s'"%(self.server, self.userJID), 5)
-            self.sendPresence()
         else:
             q.logger.log('[XMPPCLIENT] Failed to authenticate user %s with server %s'%(self.userJID, self.server))
             return False
@@ -107,7 +100,6 @@ class XMPPClient(object):
         self._client.RegisterHandler('message', self._message_Recieved)
         self._client.RegisterHandler('presence', self._presence_received)
         q.logger.log("[XMPPCLIENT] _connected:  Connected to server [%s], trying with usersname [%s]" % (self.server, self.userJID))
-        q.logger.log("DEBUG: CLIENT STATUS: %s"% self._client.isConnected())        
         
         self._doConnect()
         
@@ -116,13 +108,11 @@ class XMPPClient(object):
     def _doConnect(self):
         
         def _listen(client):
-            q.logger.log('DEBUG: STARTING LISTENER')            
             socketlist = {client.Connection._sock:'xmpp'}
             while True:            
                 (i , _, _) = select.select(socketlist.keys(),[],[],1)
                 for each in i:
                     if socketlist[each] == 'xmpp':
-                        q.logger.log('DEBUG: CALLING PROCESS.......................')
                         client.Process(1)                    
                     else:
                         q.logger.log("Unknown socket type: %s" % repr(socketlist[each]))
@@ -138,7 +128,6 @@ class XMPPClient(object):
         q.logger.log("[XMPPCLIENT] Presence received from %s of type %s"%(fromm, type_), 5)
         
     def _message_Recieved(self, conn, message):
-        q.logger.log("DEBUG: MESSAGE RECEIVED ............")
         sender = message.getFrom().getStripped()                
         receiver = message.getTo().getStripped()
         messageid = message.getID()
@@ -344,7 +333,7 @@ class XMPPCommandMessage(XMPPMessage):
     type_ = TYPE_COMMAND    
     def __init__(self, sender, receiver, messageid, command, subcommand='', params=None):
         self.sender = sender
-        self.reciver = receiver
+        self.receiver = receiver
         self.messageid = messageid
         self.command = command
         self.subcommand = subcommand

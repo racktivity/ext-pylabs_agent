@@ -32,7 +32,7 @@ class RobotTestCase(unittest.TestCase):
         testPath = q.system.fs.joinPaths(q.dirs.baseDir, 'apps', 'agent', 'cmds', 'test')
         
         if not q.system.fs.exists(testPath):
-            q.system.fs.createDir(q.system.fs.exists(q.dirs.baseDir, 'apps', 'agent', 'cmds', 'test'))
+            q.system.fs.createDir(testPath)
         taskletPath = q.system.fs.joinPaths('agent','test.py')
         q.system.fs.copyFile(taskletPath, testPath)
         
@@ -41,9 +41,9 @@ class RobotTestCase(unittest.TestCase):
         tasknumber = self.robot.execute(['test'])
         self.assertNotEquals(tasknumber, None, 'tasknumber could not be None')        
         result = self.robot.killTask(tasknumber)
-        self.assertEquals(result, True, 'Task should be killed successfully')
+        self.assertTrue(result, 'Task should be killed successfully')
         
         tasknumber = self.robot.execute(['test'])
         self.assertNotEquals(tasknumber, None, 'tasknumber could not be None')
         result = self.robot.stopTask(tasknumber)
-        self.assertEquals(result, True, 'Task should be Stopped successfully')
+        self.assertTrue(result, 'Task should be Stopped successfully')
