@@ -157,6 +157,39 @@ class Agent(object):
         
         self.accounts[xmppmessage.sender].sendMessage(xmppmessage)
     
+    
+    def start(self):
+        """
+        Starts the agent and connects all enabled accounts automatically
+       
+        @return:                     True is case all accounts disconnected successfully
+        @rtype:                      boolean
+
+        @raise e:                    In case an error occurred, exception is raised
+        """
+
+    def stop(self):
+        """
+        Stops the agent
+        
+        @return:                     True is case all accounts disconnected successfully
+        @rtype:                      boolean
+
+        @raise e:                    In case an error occurred, exception is raised
+        """
+
+    def getStatus(self):
+        """
+        Gets the status of the agent
+        
+        @return:                     Returns q.enumerators.AppStatusType
+        @rtype:                      q.enumerators.AppStatusType
+
+        @raise e:                    In case an error occurred, exception is raised
+        """
+        pass
+
+    
     def _onCommandReceived(self, xmppCommandMessage):
         """
         # Check for which account message is
