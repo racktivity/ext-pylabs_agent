@@ -26,6 +26,7 @@ from killablethread import KillableThread
 
 from pymonkey import q
 import time
+import threading
 
 
 class Robot(object):
@@ -211,6 +212,23 @@ class Robot(object):
         
         #currently we dont have a way to stop a thread
         return self.killTask(tasknumber)
+        
+#        timeout = 5
+#        task = self.runningTasks.get(tasknumber, False)
+#        if not task:
+#            q.logger.log('No Task found with number %s'%tasknumber)
+#            raise ValueError('No task running with number %s'%tasknumber)
+#        if not task.isAlive():
+#            self.runningTasks.pop(tasknumber)
+#            q.logger.log('Task %s is terminated normally'%tasknumber)
+#            return True
+#        task.stop()
+#        threading.currentThread().join(timeout)
+#        if not task.stopped():
+#            q.logger.log('Failed to stop the task %s normally, trying to terminate the task'%tasknumber, 5)
+#            return self.killTask(tasknumber)
+#        return True
+
 
 class RobotTask(KillableThread):
     def __init__(self, taskletengine, tags, params=None):

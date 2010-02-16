@@ -46,9 +46,25 @@ class KillableThread(threading.Thread):
     Thread class that can be terminated from other thread context
     """
     
-    def __init__(self, group=None, target=None, name=None,
-                 args=(), kwargs=None, verbose=None):
-        threading.Thread.__init__(self, group, target, name, args, kwargs, verbose)
+    def __init__(self):
+        super(KillableThread, self).__init__()
+        self._stop = threading.Event()
+        
+        
+    
+    def stop(self):
+        """
+        Sets the stop event flag
+        """
+        self._stop.set()
+    
+    
+    def stopped(self):
+        """
+        Checks if the thread is stopped or not
+        """
+        return self._stop.isSet()
+    
         
     def _getCurrentThreadId(self):
         """
