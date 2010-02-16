@@ -78,13 +78,11 @@ class AgentACLTest(unittest.TestCase):
         self.cfgFilePath = q.system.fs.joinPaths(q.dirs.cfgDir, 'qconfig', 'agent.cfg')
         q.system.fs.moveFile(self.cfgFilePath, '%s.bak'%self.cfgFilePath)
         q.system.fs.writeFile(self.cfgFilePath, agentConfigConent)
-        AgentACL.cfgFilePath = self.cfgFilePath
         self.agentacl = AgentACL(self.agentname, self.domain)
         
     
     def tearDown(self):
         del self.agentacl
-        AgentACL.cfgFile = None
         q.system.fs.moveFile('%s.bak'%self.cfgFilePath, self.cfgFilePath)
         self.cfgFilePath = None
         self.domain = None
