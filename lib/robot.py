@@ -26,7 +26,6 @@ from killablethread import KillableThread
 
 from pymonkey import q
 import time
-import threading
 
 
 class Robot(object):
@@ -225,7 +224,7 @@ class Robot(object):
 #            q.logger.log('Task %s is terminated normally'%tasknumber)
 #            return True
 #        task.stop()
-#        threading.currentThread().join(timeout)
+#        task.join(timeout)
 #        if not task.stopped():
 #            q.logger.log('Failed to stop the task %s normally, trying to terminate the task'%tasknumber, 5)
 #            return self.killTask(tasknumber)
