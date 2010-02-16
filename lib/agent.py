@@ -1,22 +1,22 @@
+#INCUBAID BSD version 2.0 
+#Copyright (c) 2010 Incubaid BVBA
+#
+#All rights reserved. 
+# 
+#Redistribution and use in source and binary forms, with or 
+#without modification, are permitted provided that the following 
+#conditions are met: 
+# 
+#* Redistributions of source code must retain the above copyright 
+#notice, this list of conditions and the following disclaimer. 
+#
+#* Redistributions in binary form must reproduce the above copyright 
+#notice, this list of conditions and the following disclaimer in    the documentation and/or other materials provided with the   distribution. 
+#* Neither the name Incubaid nor the names of other contributors may be used to endorse or promote products derived from this software without specific prior written permission. 
+# 
+#THIS SOFTWARE IS PROVIDED BY INCUBAID "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INCUBAID BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 '''
-INCUBAID BSD version 2.0 
-Copyright (c) 2010 Incubaid BVBA
-
-All rights reserved. 
- 
-Redistribution and use in source and binary forms, with or 
-without modification, are permitted provided that the following 
-conditions are met: 
- 
-* Redistributions of source code must retain the above copyright 
-notice, this list of conditions and the following disclaimer. 
-
-* Redistributions in binary form must reproduce the above copyright 
-notice, this list of conditions and the following disclaimer in    the documentation and/or other materials provided with the   distribution. 
-* Neither the name Incubaid nor the names of other contributors may be used to endorse or promote products derived from this software without specific prior written permission. 
- 
-THIS SOFTWARE IS PROVIDED BY INCUBAID "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INCUBAID BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 PyLabs agent module
 '''
 from agentacl import AgentACL
@@ -59,10 +59,14 @@ class Agent(object):
         
         if not q.system.fs.isFile(agentConfigFile):
             raise RuntimeError('Agent config file %s does not exit'%agentConfigFile)
-        cfgFile = IniFile(agentConfigFile)
-        for section in cfgFile.getSections():            
-            sectionInfo = cfgFile.getSectionAsDict(section)
-            if sectionInfo.get('agentname'):
+        
+        d = dict()
+        d.values()
+        cfgFile = IniFile(agentConfigFile)        
+        sections = q.config.getConfig('agent')                
+        for sectionInfo in sections.values(): 
+            if 'agentname' in sectionInfo:
+                print sectionInfo.get('agentname')
                 jid = "%s@%s"%(sectionInfo.get('agentname'), sectionInfo.get('domain'))
                 self.accounts[jid] = XMPPClient(jid, sectionInfo.get('password'))
                 self.acl[jid] = AgentACL(sectionInfo.get('agentname'), sectionInfo.get('domain'))
@@ -167,9 +171,10 @@ class Agent(object):
         REMARK!
         ## Kill and stop are exceptions, the should call killTask or stopTask on robot
         """
+        q.logger.log('Command Message is received: %s'% xmppCommandMessage.format())
         
         jid = xmppCommandMessage.sender
-        tags = [xmppCommandMessage.command]
+        tags = [xmppCommandMessage.command]        
         if xmppCommandMessage.subcommand:
             tags.append(xmppCommandMessage.subcommand)
                         
@@ -181,20 +186,31 @@ class Agent(object):
             if not self.acl[jid].isAuthorized(xmppCommandMessage.receiver, tasklet.path):
                 raise RuntimeError(' [%s] is not authorized to execute this tasklet:%s'%( xmppCommandMessage.receiver, tasklet.path))
         
-        self.robot.execute(tags, xmppCommandMessage.params)
+        if xmppCommandMessage.command.lower() == 'killtask':
+            self.robot.killTask(xmppCommandMessage.params[0])
+        elif xmppCommandMessage.command.lower() == 'stoptask':
+            self.robot.stopTask(xmppCommandMessage.params[0])
+        else:
+            self.robot.execute(tags, xmppCommandMessage.params)
+            
 
-    def _onLogReceived(self, XMPPLogMessage):
+    def _onLogReceived(self, xmppLogMessage):
         """
         """
+        q.logger.log('Log Message is received: %s'% xmppLogMessage.format())        
+        
 
-    def _onErrorReceived(self, XMPPErrorMessage):
+    def _onErrorReceived(self, xmppErrorMessage):
         """       
         """
+        q.logger.log('Error Message is received: %s'% xmppErrorMessage.format())
 
-    def _onResultReceived(self, XMPPResultMessage):
+    def _onResultReceived(self, xmppResultMessage):
         """
         """
+        q.logger.log('Result Message is received: %s'% xmppResultMessage.format())
 
-    def _onMessageReceived(self, XMPPMessage):
+    def _onMessageReceived(self, xmppMessage):
         """
         """
+        q.logger.log('XMPP Message is received: %s'% xmppMessage.format())
