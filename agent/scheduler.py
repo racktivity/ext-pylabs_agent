@@ -50,8 +50,8 @@ class Scheduler(object):
         @param groupname:            Optional parameter specifying the scheduler group to start. Is name of folder on local filesystem underneath [qbase]/apps/scheduler/ 
         @type groupname:             string
 
-        @return:                     True is case scheduler started successfully
-        @rtype:                      boolean
+        @return:                     Returns q.enumerators.AppStatusType
+        @rtype:                      q.enumerators.AppStatusType
 
         @raise e:                    In case an error occurred, exception is raised
         """
@@ -64,8 +64,8 @@ class Scheduler(object):
         @param groupname:            Optional parameter specifying the scheduler group to stop. Is name of folder on local filesystem underneath [qbase]/apps/scheduler/ 
         @type groupname:             string
 
-        @return:                     True is case scheduler stopped successfully
-        @rtype:                      boolean
+        @return:                     Returns q.enumerators.AppStatusType
+        @rtype:                      q.enumerators.AppStatusType
 
         @raise e:                    In case an error occurred, exception is raised
         """
