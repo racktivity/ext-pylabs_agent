@@ -43,7 +43,7 @@ class Robot(object):
         '''
         self.COMMANDS = dict() 
         self.runningTasks = dict()
-        self._nextTaskNumber = None
+        self._nextTaskNumber = 1
         
         q.system.fswalker.walk(q.system.fs.joinPaths(q.dirs.appDir, "agent", "cmds"), callback=self._processCommandDir, arg=self.COMMANDS, includeFolders=True, recursive=False)
     
@@ -99,10 +99,12 @@ class Robot(object):
         Incrementally generate task number
         """
         
-        if not self._nextTaskNumber:
-            self._nextTaskNumber = 1
         taskNumber = self._nextTaskNumber
-        self._nextTaskNumber += 1
+        try:
+            self._nextTaskNumber += 1
+        #incase the memory of the machine is not enough for the number of take, start over
+        except:
+            self._nextTaskNumber = 1   
         return taskNumber 
         
         
