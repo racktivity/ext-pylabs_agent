@@ -21,7 +21,10 @@ import unittest
 import sys
 from mock import Mock
 from pymonkey import q, i
-sys.path.append(q.system.fs.joinPaths(q.system.fs.getParent(q.system.fs.getcwd()), 'lib'))
+
+#parentFolder = q.system.fs.getDirName(__file__)[:-1]
+#sys.path.append(q.system.fs.joinPaths(parentFolder[:parentFolder.rindex(os.sep)], 'lib'))
+
 from xmppclient import *
 
 class dummyConnection:
@@ -127,7 +130,7 @@ class XMPPClientTestCase(unittest.TestCase):
         self.xmppClient.connect('localhost')        
         self.assertEquals(self.client.connect.call_count, 1, " XMPPClient.connect() called incorrect number of times:%s"%self.client.connect.call_count)
         self.assertEquals(self.client.auth.call_count, 1, " XMPPClient.auth() called incorrect number of times:%s"%self.client.auth.call_count)
-        self.assertEquals(self.client.send.call_count, 1, " XMPPClient.send() called incorrect number of times:%s"%self.client.send.call_count)
+        self.assertEquals(self.client.send.call_count, 0, " XMPPClient.send() called incorrect number of times:%s"%self.client.send.call_count)
         self.assertEquals(self.client.RegisterHandler.call_count, 2, " XMPPClient.RegisterHandler() called incorrect number of times:%s"%self.client.RegisterHandler.call_count)
         
     def testDisconnect(self):

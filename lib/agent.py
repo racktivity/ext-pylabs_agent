@@ -166,7 +166,7 @@ class Agent(object):
         """
         Starts the agent and connects all enabled accounts automatically
        
-        @return:                     True is case all accounts disconnected successfully
+        @return:                     True is case all accounts connected successfully
         @rtype:                      boolean
 
         @raise e:                    In case an error occurred, exception is raised
