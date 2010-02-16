@@ -33,12 +33,6 @@ class AgentACL(object):
     classdocs
     '''
     
-    cfgFilePath = None
-    
-    def _getDefaultConfigFile(self):
-        return q.system.fs.joinPaths(q.dirs.cfgDir, 'qconfig', 'agent.cfg')
-    
-    
     def __init__(self, agentname, domain):
         '''
         Constructor
@@ -61,8 +55,7 @@ class AgentACL(object):
         ** ACLs may be contradictory. && in other words
         """
         self.aclRules = dict()
-        self.cfgFilePath = self.cfgFilePath or self._getDefaultConfigFile() 
-        self._parseConfigFile(agentname, domain, self.cfgFilePath)
+        self._parseConfigFile(agentname, domain)
     
     
     def isAuthenticated(self, agent):
@@ -139,35 +132,32 @@ class AgentACL(object):
         return item
             
         
-    def _parseConfigFile(self, agentname, domain, agentConfigFile):
+    def _parseConfigFile(self, agentname, domain):
         """
         Parses the agent config file and constructs a dictionary of dictionaries
         
         @param agentname: name of the agent
         @param domain: agent domain
-        @param agentConfigFile: the main config file of the agent 
         """
-        if not q.system.fs.isFile(agentConfigFile):
-            raise RuntimeError('Agent config file %s does not exit'%agentConfigFile)
-        cfgFile = IniFile(agentConfigFile)
-        for section in cfgFile.getSections():
-            if section == 'main':
-                continue
-            sectionInfo = cfgFile.getSectionAsDict(section)
+        if not 'agent' in q.config.list():
+            raise RuntimeError('Agent config file does not exit')
+        agentConfig = q.config.getConfig('agent')
+        for section in filter(lambda item: item != 'main', agentConfig.keys()):
+            sectionInfo = agentConfig.get(section)
             if sectionInfo.get('agentname', False) == agentname and sectionInfo.get('domain', False) == domain:
-                self._processSection(cfgFile, section)
+                self._processSection(agentConfig, section)
+            
     
-    
-    def _processSection(self, cfgFile, section):
+    def _processSection(self, agentConfig, section):
         """
         Process an account section, retrieves all the acls for this account and fills the aclRuls dict with the result
         
-        @param cfgFile: the agent config file as inifile object
+        @param agentConfig: the agent config as dictionary
         @param section: section to process
         """
-        accountAcls = filter(lambda x : x.startswith('%s_'%section), cfgFile.getSections()) # '%s_'%section to prevent the account itself from appearing in the list
+        accountAcls = filter(lambda x : x.startswith('%s_'%section), agentConfig.keys()) # '%s_'%section to prevent the account itself from appearing in the list
         for accountAcl in accountAcls:
-            aclInfo = cfgFile.getSectionAsDict(accountAcl)
+            aclInfo = agentConfig.get(accountAcl)
             filters = aclInfo['agentfilters'].split(',')
             for filterEntry in filters:
                 filterEntry = filterEntry.strip() # takes care of the leading, trailing whitespace in the comma sperated list of filters
