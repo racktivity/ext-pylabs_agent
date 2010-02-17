@@ -18,12 +18,12 @@
 
 
 import unittest
-import sys
+import sys, os
 from mock import Mock
 from pymonkey import q, i
 
-#parentFolder = q.system.fs.getDirName(__file__)[:-1]
-#sys.path.append(q.system.fs.joinPaths(parentFolder[:parentFolder.rindex(os.sep)], 'lib'))
+parentFolder = q.system.fs.getDirName(__file__)[:-1]
+sys.path.append(q.system.fs.joinPaths(parentFolder[:parentFolder.rindex(os.sep)], 'lib'))
 
 from xmppclient import *
 
@@ -56,27 +56,42 @@ some error message\n!!!"""
         self.receiver = 'testReceiver'
         self.messageid = '2'
         
-    def runTest(self):
-        self.xmppMessageHandler = XMPPMessageHandler()
-        
+    def testCommandMessage(self):
         commandObject0 = self.xmppMessageHandler.deserialize(self.sender, self.receiver, self.messageid, self.commandMessage0)
         self.xmppMessageHandler.serialize(commandObject0)
-                
+        
         commandObject1 = self.xmppMessageHandler.deserialize(self.sender, self.receiver, self.messageid, self.commandMessage1)
         self.xmppMessageHandler.serialize(commandObject1)
         
+        q.console.echo('testCommandMessage ... OK')
+        
+    def testLogMessage(self):
         logObject0 = self.xmppMessageHandler.deserialize(self.sender, self.receiver, self.messageid, self.logMessage0)
         self.xmppMessageHandler.serialize(logObject0)
         
+        q.console.echo('testLogMessage ... OK')
+        
+    def testResultMessage(self):
         resultObject0 = self.xmppMessageHandler.deserialize(self.sender, self.receiver, self.messageid, self.resultMessage0)
         self.xmppMessageHandler.serialize(resultObject0)
         
         resultObject1 = self.xmppMessageHandler.deserialize(self.sender, self.receiver, self.messageid, self.resultMessage1)
         self.xmppMessageHandler.serialize(resultObject1)
         
+        q.console.echo('testResultMessage ... OK')
+        
+    def testTasknumberMessage(self):
         tasknumberObject0 = self.xmppMessageHandler.deserialize(self.sender, self.receiver, self.messageid, self.tasknumberMessage0)
         self.xmppMessageHandler.serialize(tasknumberObject0)
         
+        q.console.echo('testTasknumberMessage ... OK')    
+        
+    def runTest(self):
+        self.xmppMessageHandler = XMPPMessageHandler()
+        self.testCommandMessage()
+        self.testLogMessage()
+        self.testResultMessage()
+        self.testTasknumberMessage()
 
 
 class dummyClient(object):
@@ -112,12 +127,13 @@ class XMPPClientTestCase(unittest.TestCase):
     def initialize(self):
         
         self.client = dummyClient()
-        self.client.connect = Mock()
+        self.client.connect = Mock(return_value=True)
         self.client.auth = Mock()
         self.client.RegisterHandler = Mock()
         self.client.Process = Mock()
         self.client.disconnect = Mock()
         self.client.send = Mock()
+        self.client.connected = True
         self.xmppClient._client = self.client        
         
     def testConnect(self):
@@ -125,35 +141,83 @@ class XMPPClientTestCase(unittest.TestCase):
         testing the connect method
         """
         self.initialize()
-        self.client.connected = True
                 
         self.xmppClient.connect('localhost')        
         self.assertEquals(self.client.connect.call_count, 1, " XMPPClient.connect() called incorrect number of times:%s"%self.client.connect.call_count)
         self.assertEquals(self.client.auth.call_count, 1, " XMPPClient.auth() called incorrect number of times:%s"%self.client.auth.call_count)
         self.assertEquals(self.client.send.call_count, 0, " XMPPClient.send() called incorrect number of times:%s"%self.client.send.call_count)
         self.assertEquals(self.client.RegisterHandler.call_count, 2, " XMPPClient.RegisterHandler() called incorrect number of times:%s"%self.client.RegisterHandler.call_count)
+        self.xmppClient.disconnect()
+        
+        q.console.echo('testConnect ... OK')
+        
+    def testConnectTwice(self):
+        self.initialize()
+        self.client.connected = True
+                
+        self.xmppClient.connect('localhost')        
+        self.xmppClient.connect('localhost')
+        self.assertEquals(self.client.connect.call_count, 1, " XMPPClient.connect() called incorrect number of times:%s"%self.client.connect.call_count)
+        self.assertEquals(self.client.auth.call_count, 1, " XMPPClient.auth() called incorrect number of times:%s"%self.client.auth.call_count)
+        self.assertEquals(self.client.send.call_count, 0, " XMPPClient.send() called incorrect number of times:%s"%self.client.send.call_count)
+        self.assertEquals(self.client.RegisterHandler.call_count, 2, " XMPPClient.RegisterHandler() called incorrect number of times:%s"%self.client.RegisterHandler.call_count)
+        self.xmppClient.disconnect()        
+
+        q.console.echo('testConnectTwice ... OK')
         
     def testDisconnect(self):
         """
         testing the disconnect method
         """
-        self.initialize()        
+        self.initialize()     
+        self.xmppClient.connect('localhost')   
         self.xmppClient.disconnect()        
         self.assertEquals(self.client.disconnect.call_count, 1, " XMPPClient.disconnect() called incorrect number of times:%s"%self.client.disconnect.call_count)
+        
+        q.console.echo('testDisconnect ... OK')
+        
+    def testDisconnectOnDisconnectedClient(self):
+        self.initialize()        
+        self.xmppClient.connect('localhost')
+        self.xmppClient.disconnect()        
+        self.xmppClient.disconnect()
+        self.assertEquals(self.client.disconnect.call_count, 1, " XMPPClient.disconnect() called incorrect number of times:%s"%self.client.disconnect.call_count)
+        
+        q.console.echo('testDisconnectOnDisconnectedClient ... OK')
         
     def testSendMessage(self):
         """
         testing the sendMessage method
         """
         self.initialize()        
-        self.xmppClient.sendMessage(dummyXMPPMessage())        
+        self.xmppClient.connect('localhost')
+        self.xmppClient.sendMessage(dummyXMPPMessage())
+        self.xmppClient.disconnect()        
         self.assertEquals(self.client.send.call_count, 1, " XMPPClient.send() called incorrect number of times:%s"%self.client.send.call_count)
+        
+        q.console.echo('testSendMessage ... OK')
+        
+    def testSendMessageOnDisconnectedClient(self):
+        self.initialize()        
+        self.xmppClient.connect('localhost')
+        self.xmppClient.disconnect()
+        self.assertRaises(RuntimeError, self.xmppClient.sendMessage, dummyXMPPMessage)
 
+        self.assertEquals(self.client.connect.call_count, 1, " XMPPClient.connect() called incorrect number of times:%s"%self.client.connect.call_count)
+        self.assertEquals(self.client.auth.call_count, 1, " XMPPClient.auth() called incorrect number of times:%s"%self.client.auth.call_count)
+        self.assertEquals(self.client.send.call_count, 0, " XMPPClient.send() called incorrect number of times:%s"%self.client.send.call_count)
+        self.assertEquals(self.client.RegisterHandler.call_count, 2, " XMPPClient.RegisterHandler() called incorrect number of times:%s"%self.client.RegisterHandler.call_count)
+        self.assertEquals(self.client.disconnect.call_count, 1, " XMPPClient.disconnect() called incorrect number of times:%s"%self.client.disconnect.call_count)
+        
+        q.console.echo('testSendMessageOnDisconnectedClient ... OK')
             
     def runTest(self):
-        self.testConnect()        
+        self.testConnect()       
+        self.testConnectTwice() 
         self.testSendMessage()
+        self.testSendMessageOnDisconnectedClient()
         self.testDisconnect()
+        self.testDisconnectOnDisconnectedClient()
         
         
 class Test():

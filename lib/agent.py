@@ -19,6 +19,7 @@
 '''
 PyLabs agent module
 '''
+import signal
 from agentacl import AgentACL
 from robot import Robot, RobotTask
 from xmppclient import XMPPClient, XMPPMessage, XMPPCommandMessage, XMPPResultMessage, XMPPLogMessage, XMPPErrorMessage, XMPPTaskNumberMessage
@@ -54,7 +55,8 @@ class Agent(object):
         """
         self.accounts = dict()
         self.acl = dict()
-        self.servers = dict() 
+        self._servers = dict() 
+        self._isEnabled = dict()
         agentConfigFile = q.system.fs.joinPaths(q.dirs.cfgDir, 'qconfig', 'agent.cfg')
         
         if not q.system.fs.isFile(agentConfigFile):
@@ -62,24 +64,27 @@ class Agent(object):
         
         d = dict()
         d.values()
-        cfgFile = IniFile(agentConfigFile)        
-        sections = q.config.getConfig('agent')                
+        sections = q.config.getConfig('agent') 
         for sectionInfo in sections.values(): 
             if 'agentname' in sectionInfo:
-                print sectionInfo.get('agentname')
                 jid = "%s@%s"%(sectionInfo.get('agentname'), sectionInfo.get('domain'))
                 self.accounts[jid] = XMPPClient(jid, sectionInfo.get('password'))
                 self.acl[jid] = AgentACL(sectionInfo.get('agentname'), sectionInfo.get('domain'))
-                self.servers[jid] = sectionInfo.get('server')
+                self._servers[jid] = sectionInfo.get('server')
                 # register the required events
                 self.accounts[jid].setCommandReceivedCallback(self._onCommandReceived)
                 self.accounts[jid].setLogReceivedCallback(self._onLogReceived)
                 self.accounts[jid].setErrorReceivedCallback(self._onErrorReceived)
                 self.accounts[jid].setResultReceivedCallback(self._onResultReceived)
-                self.accounts[jid].setMessageReceivedCallback(self._onMessageReceived)                
-                
+                self.accounts[jid].setMessageReceivedCallback(self._onMessageReceived)
+                enabled = sectionInfo.get('enabled')
+                self._isEnabled[jid] = True if enabled == '1' or enabled == 'False' else False                
                 
         self.robot = Robot()
+        self._status = q.enumerators.AppStatusType.RUNNING
+        
+        signal.signal(signal.SIGTERM, self.stop)
+        signal.signal(signal.SIGINT, self.stop)
 
     def connectAccount(self, jid):
         """
@@ -96,7 +101,11 @@ class Agent(object):
         if not self.accounts.has_key(jid):
             raise RuntimeError('Account %s does not exist'% jid)
         
-        self.accounts[jid].connect(self.servers[jid])
+        if not self._isEnabled[jid]:
+            raise RuntimeError('Account %s is not enabled'% jid)
+        
+        self.accounts[jid].connect(self._servers[jid])
+        self._status = q.enumerators.AppStatusType.RUNNING
     
     def disconnectAccount(self, jid):
         """
@@ -126,7 +135,8 @@ class Agent(object):
         @raise e:                    In case an error occurred, exception is raised
         """
         for jid in self.accounts.keys():
-            self.accounts[jid].connect(self.servers[jid])
+            if self._isEnabled[jid]:
+                self.accounts[jid].connect(self._servers[jid])
     
     def disconnectAllAccounts(self):
         """
@@ -138,8 +148,9 @@ class Agent(object):
         @raise e:                    In case an error occurred, exception is raised
         """
         
-        for account in self.accounts.values():
-            account.disconnect()
+        for jid in self.accounts.keys():
+            if self._isEnabled[jid]:
+                self.accounts[jid].disconnect()
 
     def sendMessage(self, xmppmessage):
         """
@@ -171,6 +182,9 @@ class Agent(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
+        
+        self.connectAllAccounts()
+        self._status = q.enumerators.AppStatusType.RUNNING
 
     def stop(self):
         """
@@ -181,6 +195,9 @@ class Agent(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
+        
+        self.disconnectAllAccounts()
+        self._status = q.enumerators.AppStatusType.HALTED
 
     def getStatus(self):
         """
@@ -191,7 +208,7 @@ class Agent(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-        pass
+        return self._status
 
     
     def _onCommandReceived(self, xmppCommandMessage):

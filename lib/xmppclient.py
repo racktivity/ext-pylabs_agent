@@ -40,6 +40,7 @@ class XMPPClient(object):
     '''
     classdocs
     '''
+    NUMBER_OF_RETRIES = 3
     def __init__(self, jid, password, port=5222,resource=None):
         '''
         Constructor
@@ -75,15 +76,20 @@ class XMPPClient(object):
         @raise e:                    In case an error occurred, exception is raised
         """        
         if self.status == 'CONNECTED':
-            q.logger.log("[XMPPCLIENT] Client is Already to %s"%(self.server))        
+            q.logger.log("[XMPPCLIENT] Client is Already to %s"%(self.server)) 
+            return True       
         self.server = server
         q.logger.log("[XMPPCLIENT] Starting the xmpp client to %s at %s"%(self.userJID, self.server), 5)
         return self._connect()
     
     def _connect(self):
         self.status = 'CONNECTING'        
-        q.logger.log("[XMPPCLIENT] Connecting to server %s with xmpp user %s'" % (self.server, self.userJID) )        
-        self._client.connect((self.server, self.port))        
+        q.logger.log("[XMPPCLIENT] Connecting to server %s with xmpp user %s'" % (self.server, self.userJID) )
+        tries = 0 
+        
+        while tries < self.NUMBER_OF_RETRIES and not self._client.connect((self.server, self.port)):
+            tries +=1
+                
         if not self._client.connected:
             q.logger.log('[XMPPCLIENT] Failed to connect to server:%s, port:%s'%(self.server, self.port))
             return False
@@ -160,6 +166,7 @@ class XMPPClient(object):
         
         q.logger.log("[XMPPCLIENT] Stopping the xmpp client to %s at server: %s"%(self.userJID, self.server), 5)
         self._client.disconnect()
+        self.status = 'NOT_CONNECTED'
         return True
 
     def sendPresence(self, to=None, type_=None):
@@ -339,8 +346,8 @@ class XMPPCommandMessage(XMPPMessage):
         self.subcommand = subcommand
         self.params = params
     
-    def format(self):    
-        params = self.params['params'] + self.params['options']
+    def format(self):            
+        params = self.params['params'] + self.params['options'] if self.params else list()
         return '%(begin)s%(command)s %(subcommand)s\n%(params)s\n%(end)s'%{'begin':BEGIN_COMMAND, 'end':END_COMMAND, 'command':self.command, 'subcommand':self.subcommand, 'params':'\n$'.join(params)}
     
     def __str__(self):
