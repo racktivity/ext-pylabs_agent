@@ -62,6 +62,9 @@ class Scheduler(object):
         @param arg: argument passed throught the wallk method
         @param path: path to create scheduler 
         """
+        if not q.system.fs.isDir(path):
+            q.logger.log('File %s found under %s, skipping the file'%(path,self._schedulerPath), 5)
+            return 
         q.logger.log('Creating Scheduler group for path %s'%path, 5)
         groupName = q.system.fs.getBaseName(path)
         arg[groupName] = SchedulerGroup(groupName)
@@ -234,7 +237,7 @@ class SchedulerGroup(KillableThread):
         *** This will allow tasklets to stop the execution of subsequent tasklets
         """
         self.taskletengine = q.getTaskletEngine(path = q.system.fs.joinPaths(q.dirs.appDir, 'scheduler', groupname))
-        self.params = self._getInitialParams(groupname)
+        self.params = self._getInitialParams()
         self.params['STOP'] = self.taskletengine.STOP
         
         
@@ -251,23 +254,22 @@ class SchedulerGroup(KillableThread):
             time.sleep(self.interval)
 
     
-    def _getInitialParams(self, groupname):
+    def _getInitialParams(self):
         """
         parses the parameters file(yaml/ini) if any, and load the params in memory
         
-        @param groupname: name of the group to load the params for
         """              
         params = dict()
         #if both files exist, the Yaml file supersedes the ini
-        schedulerGroupPath = q.system.fs.joinPaths(q.dirs.appDir, 'schedulre', groupname)
+        schedulerGroupPath = q.system.fs.joinPaths(q.dirs.appDir, 'schedulre', self.groupname)
         paramsYaml =  q.system.fs.joinPaths(schedulerGroupPath, 'params.yaml')
         paramsIni =  q.system.fs.joinPaths(schedulerGroupPath, 'params.ini')
         if q.system.fs.exists(paramsYaml):            
-            file = open(paramsYaml)
-            params = yaml.load(file)            
+            yamlFile = open(paramsYaml)
+            params = yaml.load(yamlFile)            
         elif q.system.fs.exists(paramsIni):
-            file = IniFile(paramsIni)
-            params = file.getFileAsDict()['main']
+            inifile = IniFile(paramsIni)
+            params = inifile.getFileAsDict()['main']
             for key, val in params.iteritems():
                 # why using eval, is that only to get ride of the headache of parsing the parameters with their correct types ??
                 params[key] = eval('(%s)'%val)
