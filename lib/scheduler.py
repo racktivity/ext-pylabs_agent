@@ -64,7 +64,7 @@ class Scheduler(object):
         """
         q.logger.log('Creating Scheduler group for path %s'%path, 5)
         groupName = q.system.fs.getBaseName(path)
-        arg[groupName] = SchedulerGroup(groupName, 1) #interval = 1 for testing and sould be removed
+        arg[groupName] = SchedulerGroup(groupName)
         
     
     def start(self, groupname=None):
@@ -82,12 +82,18 @@ class Scheduler(object):
         if not groupname:
             for group in self.groups:
                 q.logger.log('Starting Scheduler for group %s'%group, 5)
+                if self.getStatus(group)[group] == q.enumerators.AppStatusType.RUNNING:
+                    q.console.echo('Group %s already running'%group)
+                    continue
                 self.groups[group].start()
                 self.runningGroups.append(group)
         elif groupname in self.groups.keys():
             q.logger.log('Starting Scheduler for group %s'%groupname, 5)
-            self.groups[groupname].start()
-            self.runningGroups.append(groupname)
+            if self.getStatus(groupname)[groupname] == q.enumerators.AppStatusType.RUNNING:
+                q.console.echo('Group %s already running'%groupname)
+            else:
+                self.groups[groupname].start()
+                self.runningGroups.append(groupname)
         else:
             raise ValueError('Group %s does not exist'%groupname)
         return True
@@ -111,11 +117,17 @@ class Scheduler(object):
                 self._stopGroup(group)
                 if group in self.runningGroups:
                     self.runningGroups.pop(self.runningGroups.index(group))
+                    #deleting the thread object and recreate it, since you cannot calling start on a stopped thread gives us and error
+                    del self.groups[group]
+                    self.groups[group] = SchedulerGroup(group)
         elif groupname in self.groups.keys():
             q.logger.log('Stopping Scheduler for group %s'%groupname, 5)
             self._stopGroup(groupname)
             if groupname in self.runningGroups:
                 self.runningGroups.pop(self.runningGroups.index(groupname))
+                #deleting the thread object and recreate it, since you cannot calling start on a stopped thread gives us an error
+                del self.groups[groupname]
+                self.groups[groupname] = SchedulerGroup(groupname)
         else:
             raise ValueError('Group %s does not exist'%groupname)
         return True
@@ -158,6 +170,9 @@ class Scheduler(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
+        
+        if groupname and not groupname in self.groups:
+            raise ValueError('Group %s does not exit'%groupname)
         if groupname and groupname in self.groups:
             return {groupname: q.enumerators.AppStatusType.RUNNING if groupname in self.runningGroups and self.groups[groupname].isAlive() else q.enumerators.AppStatusType.HALTED}
         return dict(zip(self.groups.keys(), map(lambda group: q.enumerators.AppStatusType.RUNNING if group in self.runningGroups and self.groups[group].isAlive() else q.enumerators.AppStatusType.HALTED, self.groups.keys())))
