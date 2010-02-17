@@ -26,7 +26,6 @@ from killablethread import KillableThread
 
 from pymonkey import q
 import time
-import threading
 
 
 class Robot(object):
@@ -43,7 +42,7 @@ class Robot(object):
         '''
         self.COMMANDS = dict() 
         self.runningTasks = dict()
-        self._nextTaskNumber = None
+        self._nextTaskNumber = 1
         
         q.system.fswalker.walk(q.system.fs.joinPaths(q.dirs.appDir, "agent", "cmds"), callback=self._processCommandDir, arg=self.COMMANDS, includeFolders=True, recursive=False)
     
@@ -99,10 +98,12 @@ class Robot(object):
         Incrementally generate task number
         """
         
-        if not self._nextTaskNumber:
-            self._nextTaskNumber = 1
         taskNumber = self._nextTaskNumber
-        self._nextTaskNumber += 1
+        try:
+            self._nextTaskNumber += 1
+        #incase the memory of the machine is not enough for the number of take, start over
+        except:
+            self._nextTaskNumber = 1   
         return taskNumber 
         
         
@@ -223,7 +224,7 @@ class Robot(object):
 #            q.logger.log('Task %s is terminated normally'%tasknumber)
 #            return True
 #        task.stop()
-#        threading.currentThread().join(timeout)
+#        task.join(timeout)
 #        if not task.stopped():
 #            q.logger.log('Failed to stop the task %s normally, trying to terminate the task'%tasknumber, 5)
 #            return self.killTask(tasknumber)

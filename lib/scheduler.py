@@ -1,6 +1,7 @@
+# -*- coding: utf-8 -*-
 '''
 INCUBAID BSD version 2.0 
-Copyright © 2010 Incubaid BVBA
+Copyright ï¿½ 2010 Incubaid BVBA
 
 All rights reserved. 
  
@@ -25,8 +26,12 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 
 PyLabs agent scheduler module
 '''
-from threading import Thread
-from datetime import datetime
+from killablethread import KillableThread
+from pymonkey import q, i
+from pymonkey.inifile import IniFile
+import itertools
+import time
+import yaml
 
 class Scheduler(object):
     '''
@@ -42,6 +47,28 @@ class Scheduler(object):
         For every folder create a SchedulerGroup(folder)
         
         """
+        self.runningGroups = list()
+        self._startTime = time.time()
+        self._schedulerPath = q.system.fs.joinPaths(q.dirs.appDir, 'scheduler')
+        self.groups = dict()
+        q.system.fswalker.walk(self._schedulerPath, callback=self._createGroup, arg = self.groups, includeFolders=True, recursive=False)
+        
+    
+    
+    def _createGroup(self, arg, path):
+        """
+        Creates a Scheduler group for the a path
+        
+        @param arg: argument passed throught the wallk method
+        @param path: path to create scheduler 
+        """
+        if not q.system.fs.isDir(path):
+            q.logger.log('File %s found under %s, skipping the file'%(path,self._schedulerPath), 5)
+            return 
+        q.logger.log('Creating Scheduler group for path %s'%path, 5)
+        groupName = q.system.fs.getBaseName(path)
+        arg[groupName] = SchedulerGroup(groupName)
+        
     
     def start(self, groupname=None):
         """
@@ -55,7 +82,25 @@ class Scheduler(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-        pass
+        if not groupname:
+            for group in self.groups:
+                q.logger.log('Starting Scheduler for group %s'%group, 5)
+                if self.getStatus(group)[group] == q.enumerators.AppStatusType.RUNNING:
+                    q.console.echo('Group %s already running'%group)
+                    continue
+                self.groups[group].start()
+                self.runningGroups.append(group)
+        elif groupname in self.groups.keys():
+            q.logger.log('Starting Scheduler for group %s'%groupname, 5)
+            if self.getStatus(groupname)[groupname] == q.enumerators.AppStatusType.RUNNING:
+                q.console.echo('Group %s already running'%groupname)
+            else:
+                self.groups[groupname].start()
+                self.runningGroups.append(groupname)
+        else:
+            raise ValueError('Group %s does not exist'%groupname)
+        return True
+    
 
     def stop(self, groupname=None):
         """
@@ -69,7 +114,51 @@ class Scheduler(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-        pass
+        if not groupname:
+            for group in self.groups:
+                q.logger.log('Stopping Scheduler for group %s'%group, 5)
+                self._stopGroup(group)
+                if group in self.runningGroups:
+                    self.runningGroups.pop(self.runningGroups.index(group))
+                    #deleting the thread object and recreate it, since you cannot calling start on a stopped thread gives us and error
+                    del self.groups[group]
+                    self.groups[group] = SchedulerGroup(group)
+        elif groupname in self.groups.keys():
+            q.logger.log('Stopping Scheduler for group %s'%groupname, 5)
+            self._stopGroup(groupname)
+            if groupname in self.runningGroups:
+                self.runningGroups.pop(self.runningGroups.index(groupname))
+                #deleting the thread object and recreate it, since you cannot calling start on a stopped thread gives us an error
+                del self.groups[groupname]
+                self.groups[groupname] = SchedulerGroup(groupname)
+        else:
+            raise ValueError('Group %s does not exist'%groupname)
+        return True
+    
+    
+    def _stopGroup(self, groupname, timeout = 5):
+        """
+        Stops the thread that runs the group
+        
+        @param groupname: name of the group to stop
+        @param timeout: the amount of time is seconds that we should wait before killing the group thread
+        
+        @return: True if the group stopped successfully, raise exception otherwise
+        """
+        if not self.getStatus(groupname).get(groupname, False) == q.enumerators.AppStatusType.RUNNING:
+            q.logger.log('Scheduler for group %s is not running'%groupname, 5)
+            return True
+        task = self.groups[groupname]
+        task.stop()
+        task.join(timeout)
+        if not task.stopped():
+            q.logger.log('Failed to stop the group %s normally, trying to terminate the group'%groupname, 5)
+            try:
+                task.terminate()
+            except Exception, ex:
+                raise RuntimeError('Failed to terminate running group %s. Reason: %s'%(groupname, str(ex)))
+        return True
+        
 
 
     def getStatus(self, groupname=None):
@@ -79,13 +168,19 @@ class Scheduler(object):
         @param groupname:            Optional parameter specifying the scheduler group to stop. Is name of folder on local filesystem underneath [qbase]/apps/scheduler/ 
         @type groupname:             string
 
-        @return:                     Returns q.enumerators.AppStatusType
-        @rtype:                      q.enumerators.AppStatusType
+        @return:                     Returns a dictionary of groupname: q.enumerators.AppStatusType
+        @rtype:                      dictionary
 
         @raise e:                    In case an error occurred, exception is raised
         """
-        pass
-
+        
+        if groupname and not groupname in self.groups:
+            raise ValueError('Group %s does not exit'%groupname)
+        if groupname and groupname in self.groups:
+            return {groupname: q.enumerators.AppStatusType.RUNNING if groupname in self.runningGroups and self.groups[groupname].isAlive() else q.enumerators.AppStatusType.HALTED}
+        return dict(zip(self.groups.keys(), map(lambda group: q.enumerators.AppStatusType.RUNNING if group in self.runningGroups and self.groups[group].isAlive() else q.enumerators.AppStatusType.HALTED, self.groups.keys())))
+        
+        
     def getUptime(self):
         """
         Gets the uptime of the scheduler
@@ -95,7 +190,8 @@ class Scheduler(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-        pass
+        return time.time() - self._startTime
+    
 
     def getParams(self, groupname):
         """
@@ -109,13 +205,15 @@ class Scheduler(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-        pass
+        if not groupname in self.groups:
+            raise ValueError('Group %s does not exist'%groupname)
+        return self.groups[groupname].params
 
 
-class SchedulerGroup(Thread):
+class SchedulerGroup(KillableThread):
     def __init__(self, groupname, interval=10):
         """
-        Constructor for RobotTask
+        Constructor for SchedulerGroup
 
         @param groupname:            Parameter specifying the scheduler group to schedule. Is name of folder on local filesystem underneath [qbase]/apps/scheduler/
         @type groupname:             string
@@ -124,6 +222,8 @@ class SchedulerGroup(Thread):
         @type interval:              integer
         
         """
+        KillableThread.__init__(self)
+        
         self.groupname = groupname
         self.interval = interval
         
@@ -136,6 +236,11 @@ class SchedulerGroup(Thread):
         ** Add additional key to params dict 'STOP': self.taskletengine.STOP
         *** This will allow tasklets to stop the execution of subsequent tasklets
         """
+        self.taskletengine = q.getTaskletEngine(path = q.system.fs.joinPaths(q.dirs.appDir, 'scheduler', groupname))
+        self.params = self._getInitialParams()
+        self.params['STOP'] = self.taskletengine.STOP
+        
+        
     def run(self):
         """
         import time
@@ -143,4 +248,30 @@ class SchedulerGroup(Thread):
             self.taskletengine.execute(self.params)
             time.sleep(self.interval)
         """
+        
+        while True and not self.stopped():
+            self.taskletengine.execute(tags = (self.groupname, ), params = self.params)
+            time.sleep(self.interval)
 
+    
+    def _getInitialParams(self):
+        """
+        parses the parameters file(yaml/ini) if any, and load the params in memory
+        
+        """              
+        params = dict()
+        #if both files exist, the Yaml file supersedes the ini
+        schedulerGroupPath = q.system.fs.joinPaths(q.dirs.appDir, 'schedulre', self.groupname)
+        paramsYaml =  q.system.fs.joinPaths(schedulerGroupPath, 'params.yaml')
+        paramsIni =  q.system.fs.joinPaths(schedulerGroupPath, 'params.ini')
+        if q.system.fs.exists(paramsYaml):            
+            yamlFile = open(paramsYaml)
+            params = yaml.load(yamlFile)            
+        elif q.system.fs.exists(paramsIni):
+            inifile = IniFile(paramsIni)
+            params = inifile.getFileAsDict()['main']
+            for key, val in params.iteritems():
+                # why using eval, is that only to get ride of the headache of parsing the parameters with their correct types ??
+                params[key] = eval('(%s)'%val)
+
+        return params
