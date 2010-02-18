@@ -26,6 +26,7 @@ from pymonkey.inifile import IniFile
 from pymonkey import q
 
 import re
+import os
 
 
 class AgentACL(object):
@@ -96,6 +97,7 @@ class AgentACL(object):
         **** If not found, see if wild-card path is found
         ***** E.g. ACL may not contain path system/qshellcmd but might contain system/*
         """
+        path = self._getRelativePath(path)
         if result:
             item = result.get(path, None)
             if item == None:
@@ -109,6 +111,16 @@ class AgentACL(object):
                 return item
         return False
                     
+    
+    def _getRelativePath(self, path):
+        """
+        Retrieves the relative path of the tasklet path
+        """
+        commandsPath = q.system.fs.joinPaths(q.dirs.appDir, 'agent', 'cmds')
+        relativePath = path.split(commandsPath)[-1]
+        dotIndex = relativePath.rfind('.')
+        return relativePath[len(os.sep) if relativePath.startswith(os.sep) else 0: relativePath.rindex('.') if dotIndex != -1  else len(relativePath)]
+        
         
     
     def _resolveAuthenticatedAgent(self, agent):
