@@ -87,9 +87,11 @@ class XMPPClient(object):
         q.logger.log("[XMPPCLIENT] Connecting to server %s with xmpp user %s'" % (self.server, self.userJID) )
         tries = 0 
         
-        while tries < self.NUMBER_OF_RETRIES and not self._client.connect((self.server, self.port)):
+        result = self._client.connect((self.server, self.port))
+        while tries < self.NUMBER_OF_RETRIES and not result:   
+            result = self._client.connect((self.server, self.port))          
             tries +=1
-                
+            
         if not self._client.connected:
             q.logger.log('[XMPPCLIENT] Failed to connect to server:%s, port:%s'%(self.server, self.port))
             return False
@@ -286,26 +288,23 @@ class XMPPMessageHandler(object):
             tasknumber, returncode = message[len(BEGIN_RESULT):index].split()
             returnvalue = message[index+1:-len(END_RESULT)]
             return XMPPResultMessage(sender, receiver, messageid, tasknumber, returncode, returnvalue)
-            
-        
         elif message.startswith(BEGIN_COMMAND):# !<command> [subcommand]\n[params]*\n!
             index = message.find('\n')                     
-            commandLine = message[:index].split()
+            commandLine = message[len(BEGIN_COMMAND):index].split()
             command = commandLine.pop(0)
             subcommand = commandLine[0] if commandLine else ''            
             args, options= self._getArgumentsAndOptions('\n'.join(message[index+1:]))
-            return XMPPCommandMessage(sender, receiver, messageid, command, subcommand, {'params':args, 'options':options})            
-            
+            return XMPPCommandMessage(sender, receiver, messageid, command, subcommand, {'params':args, 'options':options})
         elif message.startswith(BEGIN_LOG): # @<tasknr>|<logentry>            
             index = message.find('|')
             tasknumber = message[1:index]
             logentry = message[index+1:]
             return XMPPLogMessage(sender, receiver, messageid, tasknumber, logentry)
-            
-        
         elif message.startswith(BEGIN_TASKNR):# <ID>Tasknumber          
             tasknumber = message[len(BEGIN_TASKNR):]
             return XMPPTaskNumberMessage(sender, receiver, messageid, tasknumber)
+        else:
+            return XMPPMessage(sender, receiver, message, messageid)
         
     
     def _getArgumentsAndOptions(self, commandInput): 
@@ -330,8 +329,18 @@ class XMPPMessage(object):
     """
     Class representing a generic PyLabs XMPP message
     """
+    type_ = TYPE_UNKNOWN
     def __init__(self, sender, receiver, message, messageid=None):
-        pass
+        self.sender = sender
+        self.receiver = receiver
+        self.messageid = messageid
+        self.message = message
+        
+    def format(self):
+        return self.message
+    
+    def __str__(self):
+        return self.format()
 
 class XMPPCommandMessage(XMPPMessage):
     """
