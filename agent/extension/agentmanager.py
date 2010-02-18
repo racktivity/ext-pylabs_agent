@@ -20,6 +20,9 @@ THIS SOFTWARE IS PROVIDED BY INCUBAID "AS IS" AND ANY EXPRESS OR IMPLIED WARRANT
 PyLabs agent manager module
 '''
 
+from pymonkey import i, q
+import time
+
 class AgentManager(object):
     '''
     Class which is used by PyLabs extension to start and stop the agent
@@ -28,13 +31,19 @@ class AgentManager(object):
         '''
         Constructor
         
-        '''    
+        '''
+        
+        self._pythonBinPath = q.system.fs.joinPaths(q.dirs.binDir, 'python')
+        self._agentRunnerPath = q.system.fs.joinPaths(q.dirs.appDir, 'agent', 'lib', 'agentrunner.py')
+        self._agentCommand = '%s %s'%(self._pythonBinPath, self._agentRunnerPath)
+        self._agentPidFile = q.system.fs.joinPaths(q.dirs.varDir, 'agent', 'agent.pid')
+        self._timeout = 10
     
     def start(self):
         """
         Starts the agent as a daemon.
     
-        @return:                     True is case all accounts disconnected successfully
+        @return:                     True if the agent process started succefully
         @rtype:                      boolean
 
         @raise e:                    In case an error occurred, exception is raised
@@ -46,16 +55,49 @@ class AgentManager(object):
         * Use following library to run agent as daemon 
         *** -> http://pypi.python.org/pypi/python-daemon/
         """
-
+        if self.getStatus() == q.enumerators.AppStatusType.RUNNING:
+            q.console.echo('Agent is already running...')
+            return True
+        timeout = 10
+        startCommand = '%s start'%self._agentCommand
+        _, _ = q.system.process.execute(startCommand, outputToStdout = False)
+        agentPid = int(open(self._agentPidFile, 'r').read())
+        while timeout:
+            if q.system.process.isPidAlive(agentPid):
+                return True
+            time.sleep(1)
+            timeout -= 1
+        
+        if not timeout:
+            q.console.echo('Failed to start the server in %s seconds'%self._timeout)
+            return False
+        
     def stop(self):
         """
         Stops the agent daemon.
         
-        @return:                     True is case all accounts disconnected successfully
+        @return:                     True if the agent process stopped successfully
         @rtype:                      boolean
 
         @raise e:                    In case an error occurred, exception is raised
         """
+        if self.getStatus() == q.enumerators.AppStatusType.HALTED:
+            q.console.echo('Agent is not running...')
+            return True
+        
+        agentPid = int(open(self._agentPidFile, 'r').read())
+        timeout = 10
+        stopCommand = '%s stop'%self._agentCommand
+        _, _ = q.system.process.execute(stopCommand, outputToStdout = False)
+        while timeout:
+            if not q.system.process.isPidAlive(agentPid):
+                return True
+            time.sleep(1)
+            timeout -= 1
+        
+        if not timeout:
+            q.console.echo('Failed to stop the server in %s seconds'%self._timeout)
+            return False
 
     def getStatus(self):
         """
@@ -66,4 +108,8 @@ class AgentManager(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-        pass        
+        if not q.system.fs.exists(self._agentPidFile):
+            return q.enumerators.AppStatusType.HALTED
+        agentPid = int(open(self._agentPidFile, 'r').read())
+        return q.enumerators.AppStatusType.RUNNING if q.system.process.isPidAlive(agentPid) else q.enumerators.AppStatusType.HALTED
+        
