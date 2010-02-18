@@ -21,8 +21,8 @@ PyLabs agent module
 '''
 import signal
 from agentacl import AgentACL
-from robot import Robot, RobotTask
-from xmppclient import XMPPClient, XMPPMessage, XMPPCommandMessage, XMPPResultMessage, XMPPLogMessage, XMPPErrorMessage, XMPPTaskNumberMessage
+from robot import Robot
+from xmppclient import XMPPClient
 from pymonkey.inifile import IniFile
 from pymonkey import q
 
@@ -57,13 +57,10 @@ class Agent(object):
         self.acl = dict()
         self._servers = dict() 
         self._isEnabled = dict()
-        agentConfigFile = q.system.fs.joinPaths(q.dirs.cfgDir, 'qconfig', 'agent.cfg')
         
-        if not q.system.fs.isFile(agentConfigFile):
-            raise RuntimeError('Agent config file %s does not exit'%agentConfigFile)
+        if not 'agent' in q.config.list():
+            raise RuntimeError('Agent config file %s does not exist')
         
-        d = dict()
-        d.values()
         sections = q.config.getConfig('agent') 
         for sectionInfo in sections.values(): 
             if 'agentname' in sectionInfo:
@@ -78,10 +75,9 @@ class Agent(object):
                 self.accounts[jid].setResultReceivedCallback(self._onResultReceived)
                 self.accounts[jid].setMessageReceivedCallback(self._onMessageReceived)
                 enabled = sectionInfo.get('enabled')
-                self._isEnabled[jid] = True if enabled == '1' or enabled == 'False' else False                
+                self._isEnabled[jid] = True if enabled == '1' or enabled == 'True' else False                
                 
         self.robot = Robot()
-        self._status = q.enumerators.AppStatusType.RUNNING
         
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
@@ -224,11 +220,14 @@ class Agent(object):
         q.logger.log('Command Message is received: %s'% xmppCommandMessage.format())
         
         jid = xmppCommandMessage.sender
+        if not jid  in self.acl:
+            raise RuntimeError('Account %s has no ACLs'% jid)
+            
         tags = [xmppCommandMessage.command]        
         if xmppCommandMessage.subcommand:
             tags.append(xmppCommandMessage.subcommand)
                         
-        tasklets = self.robot.findCommands(tags)
+        tasklets = self.robot.findCommands(tuple(tags))
         if not tasklets:
             raise RuntimeError('No Tasklets found for command:% ,subcommand:%'%(xmppCommandMessage.command, xmppCommandMessage.subcommand))
         
