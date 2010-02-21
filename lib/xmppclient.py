@@ -105,6 +105,7 @@ class XMPPClient(object):
             
         #Now it's connected
         self.status = 'CONNECTED'
+        self._client.sendInitPresence()
         self._client.RegisterHandler('message', self._message_Recieved)
         self._client.RegisterHandler('presence', self._presence_received)
         q.logger.log("[XMPPCLIENT] _connected:  Connected to server [%s], trying with usersname [%s]" % (self.server, self.userJID))
@@ -280,7 +281,6 @@ class XMPPMessageHandler(object):
         @return:                     XMPPMessage object
         @rtype:                      XMPPMessage
         """
-        
         message = message.strip()
         
         if message.startswith(BEGIN_RESULT): # we must check on result before checking on command prefix

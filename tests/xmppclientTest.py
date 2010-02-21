@@ -108,6 +108,8 @@ class dummyClient(object):
         pass
     def send(self, message):
         pass
+    def sendInitPresence(self):
+        pass
     def isConnected(self):
         pass
     
