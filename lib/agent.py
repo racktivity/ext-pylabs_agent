@@ -22,7 +22,7 @@ PyLabs agent module
 import signal
 from agentacl import AgentACL
 from robot import Robot
-from xmppclient import XMPPClient
+from xmppclient import XMPPClient, XMPPTaskNumberMessage
 from pymonkey.inifile import IniFile
 from pymonkey import q
 
@@ -243,7 +243,7 @@ class Agent(object):
         elif xmppCommandMessage.command.lower() == 'stoptask':
             self.robot.stopTask(xmppCommandMessage.params[0])
         else:
-            self.robot.execute(tags, xmppCommandMessage.params)
+             self.sendMessage(XMPPTaskNumberMessage(sender = xmppCommandMessage.receiver, receiver = xmppCommandMessage.sender, messageid = xmppCommandMessage.messageid, tasknumber = self.robot.execute(tags, xmppCommandMessage.params)))
             
 
     def _onLogReceived(self, xmppLogMessage):
