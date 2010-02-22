@@ -36,7 +36,7 @@ class AgentManager(object):
         self._pythonBinPath = q.system.fs.joinPaths(q.dirs.binDir, 'python')
         self._agentRunnerPath = q.system.fs.joinPaths(q.dirs.appDir, 'agent', 'lib', 'agentrunner.py')
         self._agentCommand = '%s %s'%(self._pythonBinPath, self._agentRunnerPath)
-        self._agentPidFile = q.system.fs.joinPaths(q.dirs.varDir, 'agent', 'agent.pid')
+        self._agentPidFile = q.system.fs.joinPaths(q.dirs.pidDir, 'agent.pid')
         self._timeout = 10
     
     def start(self):
@@ -58,7 +58,7 @@ class AgentManager(object):
         if self.getStatus() == q.enumerators.AppStatusType.RUNNING:
             q.console.echo('Agent is already running...')
             return True
-        timeout = 10
+        timeout = self._timeout
         startCommand = '%s start'%self._agentCommand
         _, _ = q.system.process.execute(startCommand, outputToStdout = False)
         agentPid = int(open(self._agentPidFile, 'r').read())
@@ -86,7 +86,7 @@ class AgentManager(object):
             return True
         
         agentPid = int(open(self._agentPidFile, 'r').read())
-        timeout = 10
+        timeout = self._timeout
         stopCommand = '%s stop'%self._agentCommand
         _, _ = q.system.process.execute(stopCommand, outputToStdout = False)
         while timeout:

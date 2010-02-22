@@ -2,7 +2,6 @@ from pymonkey import InitBaseCore
 from pymonkey import q
 
 import sys
-sys.path.append(q.system.fs.joinPaths(q.dirs.appDir, 'agent', 'lib'))
 from agent import Agent
 
 import time
@@ -16,13 +15,7 @@ if not q.system.fs.exists(agentVarDir):
 	
 	
 class AgentRunner(object):
-	pidfile_path = q.system.fs.joinPaths(agentVarDir, 'agent.pid')
-	
-	stdin_path = q.system.fs.joinPaths(agentVarDir, 'stdin')
-	if not q.system.fs.exists(stdin_path):
-		q.system.fs.createEmptyFile(stdin_path)
-	stdout_path = q.system.fs.joinPaths(agentVarDir, 'stdout')
-	stderr_path = q.system.fs.joinPaths(agentVarDir, 'stderr')
+	pidfile_path = q.system.fs.joinPaths(q.dirs.pidDir, 'agent.pid')
 	stdin = None
 	stdout = None
 	stderr = None
@@ -46,10 +39,21 @@ action = args[0]
 
 if options.use_stdin:
 	runner.stdin = sys.stdin
+else:
+	runner.stdin_path = q.system.fs.joinPaths(agentVarDir, 'stdin')
+	if not q.system.fs.exists(runner.stdin_path):
+		q.system.fs.createEmptyFile(runner.stdin_path)
+	
 if options.use_stdout:
 	runner.stdout = sys.stdout
+else:
+	runner.stdout_path = q.system.fs.joinPaths(agentVarDir, 'stdout')
+	
 if options.use_stderr:
 	runner.stderr = sys.stderr
+else:
+	runner.stderr_path = q.system.fs.joinPaths(agentVarDir, 'stderr')
+	
 
 
 if action == 'start':
