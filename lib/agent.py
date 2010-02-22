@@ -79,8 +79,11 @@ class Agent(object):
                 
         self.robot = Robot()
         
-        signal.signal(signal.SIGTERM, self.stop)
-        signal.signal(signal.SIGINT, self.stop)
+        signal.signal(signal.SIGTERM, self._stop)
+        signal.signal(signal.SIGINT, self._stop)
+        
+    def _stop(self, signum, frames):
+        self.stop()        
 
     def connectAccount(self, jid):
         """
@@ -94,7 +97,7 @@ class Agent(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-        if not self.accounts.has_key(jid):
+        if not jid in self.accounts:
             raise RuntimeError('Account %s does not exist'% jid)
         
         if not self._isEnabled[jid]:
@@ -116,7 +119,7 @@ class Agent(object):
         @raise e:                    In case an error occurred, exception is raised
         """
         
-        if not self.accounts.has_key(jid):
+        if not jid in self.accounts:
             raise RuntimeError('Account %s does not exist'% jid)
         
         self.accounts[jid].disconnect()
@@ -163,7 +166,7 @@ class Agent(object):
         self.accounts[xmppmessage.sender].sendMessage(xmppmessage)
         """
         
-        if not self.accounts.has_key(xmppmessage.sender):
+        if not xmppmessage.sender in self.accounts:
             raise RuntimeError('Account %s does not exist'% xmppmessage.sender)
         
         self.accounts[xmppmessage.sender].sendMessage(xmppmessage)

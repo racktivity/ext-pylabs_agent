@@ -281,6 +281,7 @@ class XMPPMessageHandler(object):
         @return:                     XMPPMessage object
         @rtype:                      XMPPMessage
         """
+        message = message or '' # to avoid None message sent while is typing event
         message = message.strip()
         
         if message.startswith(BEGIN_RESULT): # we must check on result before checking on command prefix
