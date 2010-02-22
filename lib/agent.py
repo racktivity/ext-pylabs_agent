@@ -223,8 +223,8 @@ class Agent(object):
         q.logger.log('Command Message is received: %s'% xmppCommandMessage.format())
         
         jid = xmppCommandMessage.sender
-        if not jid  in self.acl:
-            raise RuntimeError('Account %s has no ACLs'% jid)
+        if not xmppCommandMessage.receiver  in self.acl:
+            raise RuntimeError('Account %s has no ACLs'% xmppCommandMessage.receiver)
             
         tags = [xmppCommandMessage.command]        
         if xmppCommandMessage.subcommand:
