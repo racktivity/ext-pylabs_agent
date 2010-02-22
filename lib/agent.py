@@ -232,8 +232,8 @@ class Agent(object):
             raise RuntimeError('No Tasklets found for command:% ,subcommand:%'%(xmppCommandMessage.command, xmppCommandMessage.subcommand))
         
         for tasklet in tasklets:
-            if not self.acl[jid].isAuthorized(xmppCommandMessage.receiver, tasklet.path):
-                raise RuntimeError(' [%s] is not authorized to execute this tasklet:%s'%( xmppCommandMessage.receiver, tasklet.path))
+            if not self.acl[xmppCommandMessage.receiver].isAuthorized(jid, tasklet.path):
+                raise RuntimeError(' [%s] is not authorized to execute this tasklet:%s'%(jid, tasklet.path))
         
         if xmppCommandMessage.command.lower() == 'killtask':
             self.robot.killTask(xmppCommandMessage.params[0])
