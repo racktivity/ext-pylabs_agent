@@ -154,7 +154,9 @@ class Robot(object):
             tags = tuple([tags])
         result = dict()
         for groupName, taskletEngine in self.COMMANDS.items():
-            result[groupName] = taskletEngine.find(tags = tags)
+            foundTasklets = taskletEngine.find(tags = tags)
+            if foundTasklets:
+                result[groupName] = foundTasklets
         q.logger.log('Search results are %s'%result, 5)
         return result          
         
