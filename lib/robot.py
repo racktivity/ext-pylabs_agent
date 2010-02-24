@@ -324,7 +324,7 @@ class TaskManager(KillableThread):
             q.logger.log('[Robot:TaskManager] running tasks are: %s and callback is %s'%(runningTasks, callback))
             for taskNumber, task in runningTasks.items():
                 if not task.isAlive(): # that means that task finished normally
-                    q.logger.log('[Robot:TaskManager] Task %s finished normally...')
+                    q.logger.log('[Robot:TaskManager] Task %s finished normally...'%taskNumber)
                     self.bot.removeRunningTask(taskNumber)
                     if callback:
                         params = task.getParams()
