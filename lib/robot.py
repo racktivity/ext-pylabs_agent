@@ -140,7 +140,7 @@ class Robot(object):
         
         @return: return a dictionary of the groupname and the tasklets matches the tags under this groupname
         """
-        q.logger.log('Searching avialable tasklets engines for tasklets with tags %s '%(tags))
+        q.logger.log('Searching avialable tasklets engines for tasklets with tags %s '%str(tags))
         if isinstance(tags, str):
             q.logger.log('tags should be a list not string, creating a list of the input string....')
             tags = tuple([tags])
