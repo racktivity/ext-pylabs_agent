@@ -127,8 +127,8 @@ class Robot(object):
         Return list of all matching tasklets
         """
         result = list()
-        for value in self._searchTaskletEngines(tags).values():
-            result.extend(value.path)
+        for values in self._searchTaskletEngines(tags).values():
+            result.extend([value.path for value in values])
         return result
     
     def _searchTaskletEngines(self, tags):
