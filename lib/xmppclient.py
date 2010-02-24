@@ -296,7 +296,7 @@ class XMPPMessageHandler(object):
             commandLine = message[len(BEGIN_COMMAND):index].split()
             command = commandLine.pop(0)
             subcommand = commandLine[0] if commandLine else ''            
-            args, options= self._getArgumentsAndOptions('\n'.join(message[index+1:]))
+            args, options= self._getArgumentsAndOptions(message[index+1:])
             return XMPPCommandMessage(sender, receiver, messageid, command, subcommand, {'params':args, 'options':options})
         elif message.startswith(BEGIN_LOG): # @<tasknr>|<logentry>            
             index = message.find('|')
@@ -321,9 +321,9 @@ class XMPPMessageHandler(object):
         def mod(arg):
             arg = arg[:-1]
             if arg[:1] == '-':
-                options.append(arg)                
+                options.append(arg.strip())                
             else:
-                argsResult.append(arg)                
+                argsResult.append(arg.strip())                
         
         filter(mod, args)
         return argsResult, options
