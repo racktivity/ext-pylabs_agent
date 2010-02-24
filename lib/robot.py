@@ -43,6 +43,7 @@ class Robot(object):
         self.COMMANDS = dict() 
         self.runningTasks = dict()
         self._nextTaskNumber = 1
+        self._taskCompletedCallback = None
         
         q.system.fswalker.walk(q.system.fs.joinPaths(q.dirs.appDir, "agent", "cmds"), callback=self._processCommandDir, arg=self.COMMANDS, includeFolders=True, recursive=False)
     
@@ -75,21 +76,20 @@ class Robot(object):
         ** self.tasks[tasknumber] = task
         * start RobotTask() in separate thread
         """
-        resultEngines = self._searchTaskletEngines(tags, params)
+        resultEngines = self._searchTaskletEngines(tags)
         key = resultEngines.keys()[0] if resultEngines else False
         #for first iteration dont do anything if there is more than one tasklet matching the tags
         if key and (len(resultEngines.keys()) > 1 or len(resultEngines[key]) > 1):
-            q.logger.log('More than one tasklets found for tags  %s, skipping the command ...'%tags, 5)
             raise RuntimeError('More than one tasklet found for tags %s'%tags)
-        elif key and resultEngines[key]:
+        elif key :
             engine = self.COMMANDS[key] 
-            q.logger.log('Got taskletEngine %s for group %s'%(engine, key), 5)
+            q.logger.log('Got taskletEngine %s for group %s'%(engine, key))
             task = RobotTask(engine, tags, params)
             taskNumber = self._generateTaskNumber()
             self.runningTasks[taskNumber] = task
             task.start()
             return taskNumber
-        q.logger.log('No Tasklet found for tags %s and param %s'%(tags, params), 5)
+        q.logger.log('No Tasklet found for tags %s and param %s'%(tags, params))
         return -1
         
     
@@ -108,15 +108,13 @@ class Robot(object):
         
         
 
-    def findCommands(self, tags, params=None):
+    def findCommands(self, tags):
         """
         Returns a list of tasklet objects which match the tags specified
         
         @param tags:                 List of tags 
         @type tags:                  list
 
-        @param params:               Dictionary of parameters 
-        @type params:                dictionary
 
         @return:                     List of tasklet objects
         @rtype:                      list
@@ -128,27 +126,21 @@ class Robot(object):
         Execute find method on every tasklet engine instance
         Return list of all matching tasklets
         """
-        if not params:
-            params = dict()
-            
         result = list()
-        for value in self._searchTaskletEngines(tags, params).values():
-            result.extend(value)
+        for value in self._searchTaskletEngines(tags).values():
+            result.extend(value.path)
         return result
     
-    def _searchTaskletEngines(self, tags, params):
+    def _searchTaskletEngines(self, tags):
         """
         Search all the available tasklet engines for the matching taklets
         
         @param tags:            list of tags
         @type tags:             list
         
-        @param params:               Dictionary of parameters 
-        @type params:                dictionary
-        
         @return: return a dictionary of the groupname and the tasklets matches the tags under this groupname
         """
-        q.logger.log('Searching avialable tasklets engines for tasklets with tags %s and params %s'%(tags, params), 5)
+        q.logger.log('Searching avialable tasklets engines for tasklets with tags %s '%(tags))
         if isinstance(tags, str):
             q.logger.log('tags should be a list not string, creating a list of the input string....')
             tags = tuple([tags])
@@ -157,7 +149,7 @@ class Robot(object):
             foundTasklets = taskletEngine.find(tags = tags)
             if foundTasklets:
                 result[groupName] = foundTasklets
-        q.logger.log('Search results are %s'%result, 5)
+        q.logger.log('Search results are %s'%result)
         return result          
         
     
@@ -180,7 +172,8 @@ class Robot(object):
             q.logger.log('No Task found with number %s'%tasknumber)
             raise ValueError('No task running with number %s'%tasknumber)
         if not task.isAlive():
-            self.runningTasks.pop(tasknumber)
+            killedTask = self.runningTasks.pop(tasknumber)
+            del killedTask
             q.logger.log('Task %s is terminated normally'%tasknumber)
             return True
             
@@ -196,7 +189,8 @@ class Robot(object):
             timeout -= 1
         if not killed:
             raise RuntimeError('Failed to terminate running task %s'%tasknumber)
-        self.runningTasks.pop(tasknumber)
+        killedTask = self.runningTasks.pop(tasknumber)
+        del killedTask
         return True
         
     
@@ -232,7 +226,38 @@ class Robot(object):
 #            return self.killTask(tasknumber)
 #        return True
 
-
+    
+    def setTaskCompletedCallback(self, callback):
+        """
+        register a callable object that will be called upon the normal finish of task
+        """
+        self._taskCompletedCallback = callback
+        
+    
+    def removeRunningTask(self, tasknumber):
+        """
+        Removes a task from the set of running tasks
+        
+        @param tasknumber: the number of the task to remove 
+        """
+        if tasknumber in self.runningTasks:
+            task = self.runningTasks.pop(tasknumber)
+            del task
+    
+    def getRunningTasks(self):
+        """
+        Retrieves the dictionary fo the current running tasks
+        """
+        return self.runningTasks
+    
+    
+    def getTaskCompletedCallback(self):
+        """
+        Retrieves the callable object that we need to invoked when a task completed
+        """
+        return self._taskCompletedCallback
+    
+    
 class RobotTask(KillableThread):
     def __init__(self, taskletengine, tags, params=None):
         """
@@ -265,5 +290,45 @@ class RobotTask(KillableThread):
         """
         self.taskletengine.executeFirst(self.params, self.tags)
         """
-        self.taskletengine.executeFirst(params = self.params, tags = self.tags)
+        self.taskletengine.execute(params = self.params, tags = self.tags)
         
+    
+    def getParams(self):
+        """
+        Retrives the params of the current task
+        """
+        return self.params
+    
+
+class TaskManager(KillableThread):
+    """
+    Main class to manage running tasks and periodically checks the completed tasks
+    """    
+    
+    def __init__(self, bot, interval = 2):
+        """
+        Constructor
+        
+        @param bot: the main robot that runs the tasks
+        @param interval: the a mount of time in seconds that the loop will wait before checkin on the running tasks again
+        """
+        KillableThread.__init__(self)
+        self.bot = bot
+        self.interval = interval
+        
+    def run(self):
+        while True:
+            q.logger.log('[Robot:TaskManager] Checking running tasks....')
+            runningTasks = self.bot.getRunningTasks()
+            callback = self.bot.getTaskCompletedCallback()
+            q.logger.log('[Robot:TaskManager] running tasks are: %s and callback is %s'%(runningTasks, callback))
+            for taskNumber, task in runningTasks.items():
+                if not task.isAlive(): # that means that task finished normally
+                    q.logger.log('[Robot:TaskManager] Task %s finished normally...')
+                    self.bot.removeRunningTask(taskNumber)
+                    if callback:
+                        params = task.getParams()
+                        callback(taskNumber, params.get('returncode', None), params.get('returnvalue', None))
+                    else:
+                        q.logger.log('[Robot:TaskManager] No Callback registered for finished tasks')
+            time.sleep(self.interval)

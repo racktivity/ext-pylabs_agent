@@ -21,17 +21,10 @@ PyLabs agent module
 '''
 import signal
 from agentacl import AgentACL
-from robot import Robot
-from xmppclient import XMPPClient, XMPPTaskNumberMessage
+from robot import Robot, TaskManager
+from xmppclient import XMPPClient, XMPPTaskNumberMessage, XMPPResultMessage
 from pymonkey.inifile import IniFile
 from pymonkey import q
-
-class Account(object):    
-    def __init__(self, agentname, domain, password, server):
-        self.agentname = agentname
-        self.domain = domain
-        self.password = password
-        self.server = server    
 
 
 class Agent(object):
@@ -57,6 +50,7 @@ class Agent(object):
         self.acl = dict()
         self._servers = dict() 
         self._isEnabled = dict()
+        self._tasknumberToClient= dict()
         
         if not 'agent' in q.config.list():
             raise RuntimeError('Agent config file %s does not exist')
@@ -78,6 +72,8 @@ class Agent(object):
                 self._isEnabled[jid] = True if enabled == '1' or enabled == 'True' else False                
                 
         self.robot = Robot()
+        self.taskManager = TaskManager(self.robot)
+        self.robot.setTaskCompletedCallback(self._onTaskCompleted)
         
         signal.signal(signal.SIGTERM, self._stop)
         signal.signal(signal.SIGINT, self._stop)
@@ -184,6 +180,8 @@ class Agent(object):
         
         self.connectAllAccounts()
         self._status = q.enumerators.AppStatusType.RUNNING
+        q.logger.log('[Agent] starting the robot taskmanager....')
+        self.taskManager.start()
 
     def stop(self):
         """
@@ -230,20 +228,22 @@ class Agent(object):
         if xmppCommandMessage.subcommand:
             tags.append(xmppCommandMessage.subcommand)
                         
-        tasklets = self.robot.findCommands(tuple(tags))
-        if not tasklets:
-            raise RuntimeError('No Tasklets found for command:% ,subcommand:%'%(xmppCommandMessage.command, xmppCommandMessage.subcommand))
+        taskletsPaths = self.robot.findCommands(tuple(tags))
+        if not taskletsPaths:
+            raise RuntimeError('No Tasklets found for command:%s ,subcommand:%s'%(xmppCommandMessage.command, xmppCommandMessage.subcommand))
         
-        for tasklet in tasklets:
-            if not self.acl[xmppCommandMessage.receiver].isAuthorized(jid, tasklet.path):
-                raise RuntimeError(' [%s] is not authorized to execute this tasklet:%s'%(jid, tasklet.path))
+        for taskletPath in taskletsPaths:
+            if not self.acl[xmppCommandMessage.receiver].isAuthorized(jid, taskletPath):
+                raise RuntimeError(' [%s] is not authorized to execute this tasklet:%s'%(jid, taskletPath))
         
         if xmppCommandMessage.command.lower() == 'killtask':
             self.robot.killTask(xmppCommandMessage.params[0])
         elif xmppCommandMessage.command.lower() == 'stoptask':
             self.robot.stopTask(xmppCommandMessage.params[0])
         else:
-             self.sendMessage(XMPPTaskNumberMessage(sender = xmppCommandMessage.receiver, receiver = xmppCommandMessage.sender, messageid = xmppCommandMessage.messageid, tasknumber = self.robot.execute(tags, xmppCommandMessage.params)))
+            tasknumber = self.robot.execute(tags, xmppCommandMessage.params)
+            self._tasknumberToClient[tasknumber] = (xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.messageid)
+            self.sendMessage(XMPPTaskNumberMessage(sender = xmppCommandMessage.receiver, receiver = xmppCommandMessage.sender, messageid = xmppCommandMessage.messageid, tasknumber = tasknumber))
             
 
     def _onLogReceived(self, xmppLogMessage):
@@ -266,3 +266,17 @@ class Agent(object):
         """
         """
         q.logger.log('XMPP Message is received: %s'% xmppMessage.format())
+        
+    
+    def _onTaskCompleted(self, tasknumber, returncode, returnvalue):
+        """
+        callback method that will be called when an robot task completed
+        
+        @param tasknumber: the tasknumber of the task that finished
+        @param returncode: the result returncode
+        @param returnvalue: the value of the message
+        """
+        q.logger.log('Task %s completed, result message will be constructed..'%tasknumber)
+        sender, receiver, messageid = self._tasknumberToClient[tasknumber]
+        del self._tasknumberToClient[tasknumber]
+        self.sendMessage(XMPPResultMessage(sender, receiver, messageid, tasknumber, returncode, returnvalue))

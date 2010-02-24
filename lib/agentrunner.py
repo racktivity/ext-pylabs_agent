@@ -24,7 +24,7 @@ class AgentRunner(object):
 	def run(self):
 		self.agent.start()
 		while True:
-			time.sleep(20)
+			time.sleep(5)
 
 runner = AgentRunner()
 

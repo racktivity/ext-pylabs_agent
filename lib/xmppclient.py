@@ -137,7 +137,7 @@ class XMPPClient(object):
         q.logger.log("[XMPPCLIENT] Presence received from %s of type %s"%(fromm, type_), 5)
         
     def _message_Recieved(self, conn, message):
-        sender = message.getFrom().getStripped()                
+        sender = message.getFrom().getStripped()
         receiver = message.getTo().getStripped()
         messageid = message.getID()
         message = message.getBody()
@@ -202,8 +202,10 @@ class XMPPClient(object):
         sender = xmppmessage.sender
         receiver = xmppmessage.receiver 
         
-        q.logger.log("[XMPPCLIENT] Sending message [%s] from:%s to:%s'"%(str(xmppmessage), sender, receiver),5)            
-        return self._client.send(xmpp.Message(to = receiver, body = str(xmppmessage), typ = 'chat'))
+        q.logger.log("[XMPPCLIENT] Sending message [%s] from:%s to:%s'"%(str(xmppmessage), sender, receiver),5)
+        msg = xmpp.Message(to = receiver, body = str(xmppmessage), typ = 'chat')
+        msg.setID(xmppmessage.messageid)            
+        return self._client.send(msg)
     
     
     def setCommandReceivedCallback(self, commandHandler):
