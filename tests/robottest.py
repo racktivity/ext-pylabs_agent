@@ -109,7 +109,7 @@ class RobotTest(unittest.TestCase):
         self.assertTrue(self.robot.killTask(tasknr), 'Kill task %s should be successful'%tasknr)
         self.assertEqual(params.get('result', False), 'Killed', 'the result key in the params should be killed, but params is %s'%params)
         tasknr = -1
-        self.failUnlessRaises(ValueError, self.robot.killTask, tasknr)
+        self.assertFalse(self.robot.killTask(tasknr), 'killing non existing task should return false')
         
     
     def runTest(self):

@@ -26,6 +26,7 @@ from killablethread import KillableThread
 
 from pymonkey import q
 import time
+import traceback
 
 
 class Robot(object):
@@ -170,7 +171,7 @@ class Robot(object):
         task = self.runningTasks.get(tasknumber, False)
         if not task:
             q.logger.log('No Task found with number %s'%tasknumber)
-            raise ValueError('No task running with number %s'%tasknumber)
+            return False
         if not task.isAlive():
             killedTask = self.runningTasks.pop(tasknumber)
             del killedTask
@@ -180,7 +181,9 @@ class Robot(object):
         try:
             task.terminate()
         except Exception, ex:
-            raise RuntimeError('Failed to terminate running task %s. Reason: %s'%(tasknumber, str(ex)))
+            q.logger.log('Failed to terminate running task %s. Reason: %s'%(tasknumber, str(ex)), 3)
+            traceback.print_exc()
+            return False
         while timeout:
             if not task.isAlive():
                 killed = True
@@ -188,7 +191,8 @@ class Robot(object):
             time.sleep(1)
             timeout -= 1
         if not killed:
-            raise RuntimeError('Failed to terminate running task %s'%tasknumber)
+            q.logger.log('Failed to terminate running task %s'%tasknumber)
+            return False
         killedTask = self.runningTasks.pop(tasknumber)
         del killedTask
         return True
