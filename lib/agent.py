@@ -72,8 +72,6 @@ class Agent(object):
                 self._isEnabled[jid] = True if enabled == '1' or enabled == 'True' else False                
                 
         self.robot = Robot()
-        self.robot.setOnPrintReceivedCallback(self._onPrintReceived)
-        self.robot.setOnExceptionReceivedCallback(self._onExceptionReceived)
         
         self.taskManager = TaskManager(self.robot)
         self.robot.setTaskCompletedCallback(self._onTaskCompleted)
@@ -293,8 +291,4 @@ class Agent(object):
         del self._tasknumberToClient[tasknumber]
         self.sendMessage(XMPPResultMessage(sender, receiver, messageid, tasknumber, returncode, returnvalue))
         
-    def _onPrintReceived(self, tasknumber, string):
-        print 'DEBUG: tasknumber:%s , prints:%s'%(tasknumber, string)
-        
-    def _onExceptionReceived(self, tasknumber, type_, value, tb):
-        print 'DEBUG: tasknumber:%s, typeOfException:%s, value:%s, tb:%s'%(tasknumber, type_, value, tb)
+    
