@@ -171,7 +171,7 @@ class Robot(object):
         task = self.runningTasks.get(tasknumber, False)
         if not task:
             q.logger.log('No Task found with number %s'%tasknumber)
-            return False
+            return True
         if not task.isAlive():
             killedTask = self.runningTasks.pop(tasknumber)
             del killedTask
