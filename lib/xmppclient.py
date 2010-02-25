@@ -180,7 +180,8 @@ class XMPPClient(object):
         @type type: string
         '''
         if self.status <> 'RUNNING' and self.status <> 'CONNECTED':
-            raise RuntimeError("client is not connected")
+            q.logger.log("client is not connected")
+            return
         
         q.logger.log("[XMPPCLIENT] Sending presence of type %s to %s"%(str(type_), str(to)), 5)
         self._client.send(xmpp.Presence(to = to, typ = type_))
@@ -197,7 +198,8 @@ class XMPPClient(object):
         """        
         
         if self.status <> 'RUNNING' and self.status <> 'CONNECTED':
-            raise RuntimeError("client is not connected")
+            q.logger.log("client is not connected")
+            return
         
         sender = xmppmessage.sender
         receiver = xmppmessage.receiver 
