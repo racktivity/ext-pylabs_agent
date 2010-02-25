@@ -71,7 +71,10 @@ class Agent(object):
                 enabled = sectionInfo.get('enabled')
                 self._isEnabled[jid] = True if enabled == '1' or enabled == 'True' else False                
                 
-        self.robot = Robot()        
+        self.robot = Robot()
+        self.robot.setOnPrintReceivedCallback(self._onPrintReceived)
+        self.robot.setOnExceptionReceivedCallback(self._onExceptionReceived)
+        
         self.taskManager = TaskManager(self.robot)
         self.robot.setTaskCompletedCallback(self._onTaskCompleted)
         
@@ -167,6 +170,7 @@ class Agent(object):
         
         if not xmppmessage.sender in self.accounts:
             q.logger.log('Account %s does not exist'% xmppmessage.sender)
+            return
         
         self.accounts[xmppmessage.sender].sendMessage(xmppmessage)
     
@@ -287,5 +291,10 @@ class Agent(object):
         q.logger.log('Task %s completed, result message will be constructed..'%tasknumber)
         sender, receiver, messageid = self._tasknumberToClient[tasknumber]
         del self._tasknumberToClient[tasknumber]
-        self.sendMessage(XMPPResultMessage(sender, receiver, messageid, tasknumber, returncode, returnvalue))        
-    
+        self.sendMessage(XMPPResultMessage(sender, receiver, messageid, tasknumber, returncode, returnvalue))
+        
+    def _onPrintReceived(self, tasknumber, string):
+        print 'DEBUG: tasknumber:%s , prints:%s'%(tasknumber, string)
+        
+    def _onExceptionReceived(self, tasknumber, type_, value, tb):
+        print 'DEBUG: tasknumber:%s, typeOfException:%s, value:%s, tb:%s'%(tasknumber, type_, value, tb)
