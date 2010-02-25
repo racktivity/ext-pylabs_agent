@@ -54,7 +54,7 @@ class Robot(object):
         taskletEngine = q.getTaskletEngine(path)
         arg[q.system.fs.getBaseName(path)] = taskletEngine
      
-    def execute(self, tags, params=None):
+    def execute(self, tags, params=None, taskNumber = None):
         """
         Executes a tasklet in the allowed groups matching the tags and match function with the parameters specified in a separate sub-process
         
@@ -63,6 +63,9 @@ class Robot(object):
 
         @param params:               Dictionary of parameters 
         @type params:                dictionary
+        
+        @param taskNumber:           number of the task to be executed
+        @type taskNubmer:            int
 
         @return:                     Task number for this task
         @rtype:                      integer
@@ -86,13 +89,20 @@ class Robot(object):
             engine = self.COMMANDS[key] 
             q.logger.log('Got taskletEngine %s for group %s'%(engine, key))
             task = RobotTask(engine, tags, params)
-            taskNumber = self._generateTaskNumber()
+            taskNumber = taskNumber or self._generateTaskNumber()
             self.runningTasks[taskNumber] = task
             task.start()
             return taskNumber
         q.logger.log('No Tasklet found for tags %s and param %s'%(tags, params))
         return -1
         
+    
+    
+    def getNextTaskNumber(self):
+        """
+        Retreive the next tasknumber in the sequence of task numbers
+        """
+        return self._generateTaskNumber()
     
     def _generateTaskNumber(self):
         """
