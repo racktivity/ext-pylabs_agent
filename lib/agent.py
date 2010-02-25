@@ -230,16 +230,16 @@ class Agent(object):
                         
         taskletsPaths = self.robot.findCommands(tuple(tags))
         if not taskletsPaths:
-            raise RuntimeError('No Tasklets found for command:%s ,subcommand:%s'%(xmppCommandMessage.command, xmppCommandMessage.subcommand))
+            q.logger.log('No Tasklets found for command:%s ,subcommand:%s'%(xmppCommandMessage.command, xmppCommandMessage.subcommand))
         
         for taskletPath in taskletsPaths:
             if not self.acl[xmppCommandMessage.receiver].isAuthorized(jid, taskletPath):
                 raise RuntimeError(' [%s] is not authorized to execute this tasklet:%s'%(jid, taskletPath))
         
         if xmppCommandMessage.command.lower() == 'killtask':
-            self.robot.killTask(xmppCommandMessage.params[0])
+            self.robot.killTask(int(xmppCommandMessage.params['params'][0]))
         elif xmppCommandMessage.command.lower() == 'stoptask':
-            self.robot.stopTask(xmppCommandMessage.params[0])
+            self.robot.stopTask(int(xmppCommandMessage.params['params'][0]))
         else:
             tasknumber = self.robot.execute(tags, xmppCommandMessage.params)
             self._tasknumberToClient[tasknumber] = (xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.messageid)
