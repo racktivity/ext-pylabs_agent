@@ -71,10 +71,7 @@ class Agent(object):
                 enabled = sectionInfo.get('enabled')
                 self._isEnabled[jid] = True if enabled == '1' or enabled == 'True' else False                
                 
-        self.robot = Robot()
-        self.robot.setOnPrintReceivedCallback(self._onPrintReceived)
-        self.robot.setOnExceptionReceivedCallback(self._onExceptionReceived)
-        
+        self.robot = Robot()        
         self.taskManager = TaskManager(self.robot)
         self.robot.setTaskCompletedCallback(self._onTaskCompleted)
         
@@ -97,10 +94,12 @@ class Agent(object):
         @raise e:                    In case an error occurred, exception is raised
         """
         if not jid in self.accounts:
-            raise RuntimeError('Account %s does not exist'% jid)
+            q.logger.log('Account %s does not exist'% jid)
+            return
         
         if not self._isEnabled[jid]:
-            raise RuntimeError('Account %s is not enabled'% jid)
+            q.logger.log('Account %s is not enabled'% jid)
+            return
         
         self.accounts[jid].connect(self._servers[jid])
         self._status = q.enumerators.AppStatusType.RUNNING
@@ -119,7 +118,8 @@ class Agent(object):
         """
         
         if not jid in self.accounts:
-            raise RuntimeError('Account %s does not exist'% jid)
+            q.logger.log('Account %s does not exist'% jid)
+            return
         
         self.accounts[jid].disconnect()
 
@@ -166,7 +166,7 @@ class Agent(object):
         """
         
         if not xmppmessage.sender in self.accounts:
-            raise RuntimeError('Account %s does not exist'% xmppmessage.sender)
+            q.logger.log('Account %s does not exist'% xmppmessage.sender)
         
         self.accounts[xmppmessage.sender].sendMessage(xmppmessage)
     
@@ -225,7 +225,8 @@ class Agent(object):
         
         jid = xmppCommandMessage.sender
         if not xmppCommandMessage.receiver  in self.acl:
-            raise RuntimeError('Account %s has no ACLs'% xmppCommandMessage.receiver)
+            q.logger.log('Account %s has no ACLs'% xmppCommandMessage.receiver)
+            return
             
         tags = [xmppCommandMessage.command]        
         if xmppCommandMessage.subcommand:
@@ -238,7 +239,8 @@ class Agent(object):
             
             for taskletPath in taskletsPaths:
                 if not self.acl[xmppCommandMessage.receiver].isAuthorized(jid, taskletPath):
-                    raise RuntimeError(' [%s] is not authorized to execute this tasklet:%s'%(jid, taskletPath))
+                    q.logger.log(' [%s] is not authorized to execute this tasklet:%s'%(jid, taskletPath))
+                    return
             
             if xmppCommandMessage.command.lower() == 'killtask':
                 self.robot.killTask(int(xmppCommandMessage.params['params'][0]))
@@ -285,10 +287,5 @@ class Agent(object):
         q.logger.log('Task %s completed, result message will be constructed..'%tasknumber)
         sender, receiver, messageid = self._tasknumberToClient[tasknumber]
         del self._tasknumberToClient[tasknumber]
-        self.sendMessage(XMPPResultMessage(sender, receiver, messageid, tasknumber, returncode, returnvalue))
-        
-    def _onPrintReceived(self, tasknumber, string):
-        print 'DEBUG: tasknumber:%s , prints:%s'%(tasknumber, string)
-        
-    def _onExceptionReceived(self, tasknumber, type_, value, tb):
-        print 'DEBUG: tasknumber:%s, typeOfException:%s, value:%s, tb:%s'%(tasknumber, type_, value, tb)
+        self.sendMessage(XMPPResultMessage(sender, receiver, messageid, tasknumber, returncode, returnvalue))        
+    
