@@ -21,7 +21,7 @@ PyLabs agent module
 '''
 import signal
 from agentacl import AgentACL
-from robot import Robot, TaskManager
+from robot import Robot
 from xmppclient import XMPPClient, XMPPTaskNumberMessage, XMPPResultMessage
 from pymonkey.inifile import IniFile
 from pymonkey import q
@@ -73,7 +73,6 @@ class Agent(object):
                 
         self.robot = Robot()
         
-        self.taskManager = TaskManager(self.robot)
         self.robot.setTaskCompletedCallback(self._onTaskCompleted)
         
         signal.signal(signal.SIGTERM, self._stop)
@@ -185,8 +184,6 @@ class Agent(object):
         
         self.connectAllAccounts()
         self._status = q.enumerators.AppStatusType.RUNNING
-        q.logger.log('[Agent] starting the robot taskmanager....')
-        self.taskManager.start()
 
     def stop(self):
         """
