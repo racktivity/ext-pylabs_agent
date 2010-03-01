@@ -76,7 +76,7 @@ class XMPPClient(object):
         @raise e:                    In case an error occurred, exception is raised
         """        
         if self.status == 'CONNECTED':
-            q.logger.log("[XMPPCLIENT] Client is Already to %s"%(self.server)) 
+            q.logger.log("[XMPPCLIENT] Client is already connected to %s"%(self.server)) 
             return True       
         self.server = server
         q.logger.log("[XMPPCLIENT] Starting the xmpp client to %s at %s"%(self.userJID, self.server), 5)
@@ -106,8 +106,8 @@ class XMPPClient(object):
         #Now it's connected
         self.status = 'CONNECTED'
         self._client.sendInitPresence()
-        self._client.RegisterHandler('message', self._message_Recieved)
-        self._client.RegisterHandler('presence', self._presence_received)
+        self._client.RegisterHandler('message', self._messageRecieved)
+        self._client.RegisterHandler('presence', self._presenceReceived)
         q.logger.log("[XMPPCLIENT] _connected:  Connected to server [%s], trying with usersname [%s]" % (self.server, self.userJID))
         
         self._doConnect()
@@ -130,22 +130,24 @@ class XMPPClient(object):
         #t = Thread(target=self._listen)
         t.start()
         
-    def _presence_received(self, conn, message):
+    def _presenceReceived(self, conn, message):
         type_ = message.getType()
         fromm = message.getFrom().getStripped() or ''
             
         q.logger.log("[XMPPCLIENT] Presence received from %s of type %s"%(fromm, type_), 5)
         
-    def _message_Recieved(self, conn, message):
+    def _messageRecieved(self, conn, message):
         sender = message.getFrom().getStripped()
         receiver = message.getTo().getStripped()
+        resource = message.getFrom().getResource()
         messageid = message.getID()
         message = message.getBody()
+        
         
         q.logger.log('[XMPPCLIENT] Message is received, from:%s, to:%s, id:%s, body:%s'%(sender, receiver, messageid, message)) 
         
         messageHanlder = XMPPMessageHandler()
-        messageObject = messageHanlder.deserialize(sender, receiver, messageid, message)
+        messageObject = messageHanlder.deserialize(sender, receiver, resource, messageid, message)
         
         callback = self.callbacks[messageObject.type_]
         if callback:
@@ -202,10 +204,11 @@ class XMPPClient(object):
             return
         
         sender = xmppmessage.sender
-        receiver = xmppmessage.receiver 
+        receiver = xmppmessage.receiver
+        resource = xmppmessage.resource 
         
         q.logger.log("[XMPPCLIENT] Sending message [%s] from:%s to:%s'"%(str(xmppmessage), sender, receiver),5)
-        msg = xmpp.Message(to = receiver, body = str(xmppmessage), typ = 'chat')
+        msg = xmpp.Message(to = '%s/%s'%(receiver, resource), body = str(xmppmessage), typ = 'chat')
         msg.setID(xmppmessage.messageid)            
         return self._client.send(msg)
     
@@ -275,7 +278,7 @@ class XMPPMessageHandler(object):
         
         return xmppmessage.format()
         
-    def deserialize(self, sender, receiver, messageid, message):
+    def deserialize(self, sender, receiver, resource, messageid, message):
         """
         Deserializes a PyLabs XMPP command message to a XMPPMessage object
         
@@ -292,24 +295,24 @@ class XMPPMessageHandler(object):
             index = message.find('\n')            
             tasknumber, returncode = message[len(BEGIN_RESULT):index].split()
             returnvalue = message[index+1:-len(END_RESULT)]
-            return XMPPResultMessage(sender, receiver, messageid, tasknumber, returncode, returnvalue)
+            return XMPPResultMessage(sender, receiver, resource, messageid, tasknumber, returncode, returnvalue)
         elif message.startswith(BEGIN_COMMAND):# !<command> [subcommand]\n[params]*\n!
             index = message.find('\n')                     
             commandLine = message[len(BEGIN_COMMAND):index].split()
             command = commandLine.pop(0)
             subcommand = commandLine[0] if commandLine else ''            
             args, options= self._getArgumentsAndOptions(message[index+1:])
-            return XMPPCommandMessage(sender, receiver, messageid, command, subcommand, {'params':args, 'options':options})
+            return XMPPCommandMessage(sender, receiver, resource, messageid, command, subcommand, {'params':args, 'options':options})
         elif message.startswith(BEGIN_LOG): # @<tasknr>|<logentry>            
             index = message.find('|')
             tasknumber = message[1:index]
             logentry = message[index+1:]
-            return XMPPLogMessage(sender, receiver, messageid, tasknumber, logentry)
+            return XMPPLogMessage(sender, receiver, resource, messageid, tasknumber, logentry)
         elif message.startswith(BEGIN_TASKNR):# <ID>Tasknumber          
             tasknumber = message[len(BEGIN_TASKNR):]
-            return XMPPTaskNumberMessage(sender, receiver, messageid, tasknumber)
+            return XMPPTaskNumberMessage(sender, receiver, resource, messageid, tasknumber)
         else:
-            return XMPPMessage(sender, receiver, message, messageid)
+            return XMPPMessage(sender, receiver, resource, message, messageid)
         
     
     def _getArgumentsAndOptions(self, commandInput): 
@@ -335,9 +338,10 @@ class XMPPMessage(object):
     Class representing a generic PyLabs XMPP message
     """
     type_ = TYPE_UNKNOWN
-    def __init__(self, sender, receiver, message, messageid=None):
+    def __init__(self, sender, receiver, message, resource, messageid=None):
         self.sender = sender
         self.receiver = receiver
+        self.resource = resource
         self.messageid = messageid
         self.message = message
         
@@ -352,9 +356,10 @@ class XMPPCommandMessage(XMPPMessage):
     Class representing a PyLabs XMPP command message
     """
     type_ = TYPE_COMMAND    
-    def __init__(self, sender, receiver, messageid, command, subcommand='', params=None):
+    def __init__(self, sender, receiver, resource, messageid, command, subcommand='', params=None):
         self.sender = sender
         self.receiver = receiver
+        self.resource = resource
         self.messageid = messageid
         self.command = command
         self.subcommand = subcommand
@@ -374,10 +379,11 @@ class XMPPResultMessage(XMPPMessage):
     Class representing a PyLabs XMPP result message
     """
     type_ = TYPE_RESULT
-    def __init__(self, sender, receiver, messageid, tasknumber, returncode, returnvalue):
+    def __init__(self, sender, receiver, resource, messageid, tasknumber, returncode, returnvalue):
         
         self.sender = sender
         self.receiver = receiver
+        self.resource = resource
         self.messageid = messageid
         self.tasknumber = tasknumber
         self.returncode = returncode
@@ -395,9 +401,10 @@ class XMPPLogMessage(XMPPMessage):
     Class representing a PyLabs XMPP log message
     """
     type_ = TYPE_LOG
-    def __init__(self, sender, receiver, messageid, tasknumber, logentry):
+    def __init__(self, sender, receiver, resource, messageid, tasknumber, logentry):
         self.sender = sender
         self.receiver = receiver
+        self.resource = resource
         self.messageid = messageid
         self.tasknumber = tasknumber
         self.logentry = logentry
@@ -414,7 +421,7 @@ class XMPPErrorMessage(XMPPMessage):
     Class representing a PyLabs XMPP error message
     """
     type_ = TYPE_ERROR
-    def __init__(self, sender, receiver, messageid, tasknumber, returncode, returnvalue):
+    def __init__(self, sender, receiver, resource, messageid, tasknumber, returncode, returnvalue):
         pass
 
 class XMPPTaskNumberMessage(XMPPMessage):
@@ -422,9 +429,10 @@ class XMPPTaskNumberMessage(XMPPMessage):
     Class representing a PyLabs XMPP error message
     """
     type_ = TYPE_TASKNUMBER
-    def __init__(self, sender, receiver, messageid, tasknumber):
+    def __init__(self, sender, receiver, resource, messageid, tasknumber):
         self.sender = sender
         self.receiver = receiver
+        self.resource = resource
         self.messageid = messageid
         self.tasknumber = tasknumber
     

@@ -23,9 +23,11 @@
 PyLabs robot module
 '''
 from killablethread import KillableThread
+from ThreadRedirector import ThreadRedirector
 
 from pymonkey import q
 import time
+import sys, threading
 import traceback
 
 
@@ -33,6 +35,9 @@ class Robot(object):
     '''
     Main bot classs, scans a directory and create a tasklet engine for each group of commands, executes Robot tasks
     '''
+    _onPrintReceived = None
+    _onExceptionReceived = None
+    
     def __init__(self):
         '''
         Constructor
@@ -47,12 +52,51 @@ class Robot(object):
         self._taskCompletedCallback = None
         
         q.system.fswalker.walk(q.system.fs.joinPaths(q.dirs.appDir, "agent", "cmds"), callback=self._processCommandDir, arg=self.COMMANDS, includeFolders=True, recursive=False)
+                    
+        self.patch = ThreadRedirector()
+        self.patch.setOnPrintReceivedCallback(Robot.printReceived)
+        sys.stdout = self.patch        
+        
+    @classmethod
+    def printReceived(cls, taskNumber, string):
+        if Robot._onPrintReceived:
+            Robot._onPrintReceived(taskNumber, string)
+        else:
+            q.logger.log('[Robot] Warning, no callback is registered for OnPrintReceived', 5)
     
+    @classmethod
+    def exceptionReceived(cls, type_, value, tb):        
+        curThread = threading.currentThread()
+        q.logger.log('DEBUG: exceptHook, type_:%s, value:%s, tb:%s'%(type_, value, tb))                
+        if hasattr(curThread, 'taskNumber'):
+            if Robot._onExceptionReceived:
+                Robot._onExceptionReceived(curThread.taskNumber, type_, value, tb)
+            else:
+                q.logger.log('[Robot] Warning, no callback is registered for OnExceptionReceived', 5)                        
+        else:
+            sys.__excepthook__(*sys.exc_info()) # this means that this exception is not raised from tasklet/RobotTask            
+
     def _processCommandDir(self, arg, path):
         if not q.system.fs.isDir(path):
             return
         taskletEngine = q.getTaskletEngine(path)
         arg[q.system.fs.getBaseName(path)] = taskletEngine
+    
+    def setOnPrintReceivedCallback(self, handler):
+        """
+        set the print received callback for the robot tasks
+        
+        e.g def handler(taskNumber, string): 
+        """
+        Robot._onPrintReceived = handler
+        
+    def setOnExceptionReceivedCallback(self, handler):
+        """
+        set the exception received callback for the robot tasks 
+        
+        e.g def handler(taskNumber, typeOfException, value, traceback)
+        """
+        Robot._onExceptionReceived = handler
      
     def execute(self, tags, params=None, taskNumber = None):
         """
@@ -88,14 +132,14 @@ class Robot(object):
         elif key :
             engine = self.COMMANDS[key] 
             q.logger.log('Got taskletEngine %s for group %s'%(engine, key))
-            task = RobotTask(engine, tags, params)
             taskNumber = taskNumber or self._generateTaskNumber()
+            task = RobotTask(engine, tags, taskNumber,params)
+            
             self.runningTasks[taskNumber] = task
             task.start()
             return taskNumber
         q.logger.log('No Tasklet found for tags %s and param %s'%(tags, params))
         return -1
-        
     
     
     def getNextTaskNumber(self):
@@ -271,9 +315,12 @@ class Robot(object):
         """
         return self._taskCompletedCallback
     
+
+def _excepthook(type_, value, tb):        
+        Robot.exceptionReceived(type_, value, tb)        
     
 class RobotTask(KillableThread):
-    def __init__(self, taskletengine, tags, params=None):
+    def __init__(self, taskletengine, tags, taskNumber, params=None):
         """
         Constructor for RobotTask
 
@@ -291,21 +338,28 @@ class RobotTask(KillableThread):
             
         if params == None: # checking on None in case someone calling with params = dict()/{}
             params = dict()
-        
-        self.taskletengine = taskletengine
+        self.taskNumber = taskNumber
+        self.taskletengine = taskletengine        
         if isinstance(tags, str):
             q.logger.log('tags should be a list not string, creating a list of the input string....')
             tags = tuple([tags])
         self.tags = tags or list()
         self.params = params
+        sys.excepthook = _excepthook
         
         
     def run(self):
         """
         self.taskletengine.executeFirst(self.params, self.tags)
         """
-        self.taskletengine.execute(params = self.params, tags = self.tags)
-        
+        try:
+            self.taskletengine.execute(params = self.params, tags = self.tags)
+        except Exception, ex:
+            q.logger.log('DEBUG: EXCEPTION HAPPENED IN TASKLET ENGINE AND CATCHED: ---> %s'%ex)
+            if sys.excepthook:
+                sys.excepthook(*sys.exc_info())
+            else:
+                q.logger.log('DEBUG: SYS.EXCEPTHOOK IS NONE')        
     
     def getParams(self):
         """

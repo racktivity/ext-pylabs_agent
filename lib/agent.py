@@ -20,9 +20,10 @@
 PyLabs agent module
 '''
 import signal
+import traceback
 from agentacl import AgentACL
 from robot import Robot, TaskManager
-from xmppclient import XMPPClient, XMPPTaskNumberMessage, XMPPResultMessage
+from xmppclient import XMPPClient, XMPPTaskNumberMessage, XMPPResultMessage, XMPPLogMessage
 from pymonkey.inifile import IniFile
 from pymonkey import q
 
@@ -72,6 +73,8 @@ class Agent(object):
                 self._isEnabled[jid] = True if enabled == '1' or enabled == 'True' else False                
                 
         self.robot = Robot()
+        self.robot.setOnPrintReceivedCallback(self._onPrintReceived)
+        self.robot.setOnExceptionReceivedCallback(self._onExceptionReceived)
         
         self.taskManager = TaskManager(self.robot)
         self.robot.setTaskCompletedCallback(self._onTaskCompleted)
@@ -244,14 +247,24 @@ class Agent(object):
                     q.logger.log(' [%s] is not authorized to execute this tasklet:%s'%(jid, taskletPath))
                     return
             
+            tasknumber = self.robot.getNextTaskNumber()
+            
             if xmppCommandMessage.command.lower() == 'killtask':
-                self.robot.killTask(int(xmppCommandMessage.params['params'][0]))
+                taskToBeKilled = int(xmppCommandMessage.params['params'][0])
+                if self.robot.killTask(taskToBeKilled):
+                    self.sendMessage(XMPPResultMessage(xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid, tasknumber, 0, 'Task %s is killed successfully '%taskToBeKilled))
+                else:
+                    self.sendMessage(XMPPResultMessage(xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid, tasknumber, 1, 'Task %s could not be killed'%taskToBeKilled))   
             elif xmppCommandMessage.command.lower() == 'stoptask':
-                self.robot.stopTask(int(xmppCommandMessage.params['params'][0]))
-            else:
-                tasknumber = self.robot.execute(tags, xmppCommandMessage.params)
-                self._tasknumberToClient[tasknumber] = (xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.messageid)
-                self.sendMessage(XMPPTaskNumberMessage(sender = xmppCommandMessage.receiver, receiver = xmppCommandMessage.sender, messageid = xmppCommandMessage.messageid, tasknumber = tasknumber))
+                taskToBeStooped = int(xmppCommandMessage.params['params'][0])
+                if self.robot.stopTask(taskToBeStooped):                
+                    self.sendMessage(XMPPResultMessage(xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid, tasknumber, 0, 'Task %s stopped successfully '%taskToBeStooped))
+                else:
+                    self.sendMessage(XMPPResultMessage(xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid, tasknumber, 1, 'Task %s could not be stopped'%taskToBeStooped))
+            else:                
+                self._tasknumberToClient[tasknumber] = (xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid)
+                self.robot.execute(tags, xmppCommandMessage.params, tasknumber)                
+                self.sendMessage(XMPPTaskNumberMessage(sender = xmppCommandMessage.receiver, receiver = xmppCommandMessage.sender, resource = xmppCommandMessage.resource, messageid = xmppCommandMessage.messageid, tasknumber = tasknumber))
         except Exception, ex:
             q.logger.log('[Agent] Exception Occurred while trying to execute the command %s'%ex)
             
@@ -287,8 +300,21 @@ class Agent(object):
         @param returnvalue: the value of the message
         """
         q.logger.log('Task %s completed, result message will be constructed..'%tasknumber)
-        sender, receiver, messageid = self._tasknumberToClient[tasknumber]
+        sender, receiver, resource, messageid = self._tasknumberToClient[tasknumber]
         del self._tasknumberToClient[tasknumber]
-        self.sendMessage(XMPPResultMessage(sender, receiver, messageid, tasknumber, returncode, returnvalue))
+        self.sendMessage(XMPPResultMessage(sender, receiver, resource, messageid, tasknumber, returncode, returnvalue))
         
-    
+    def _onPrintReceived(self, tasknumber, string):
+        if not string.strip():
+            return
+        q.logger.log('Task %s prints: %s'%(tasknumber,string))
+        sender, receiver, resource, messageid = self._tasknumberToClient[tasknumber]
+        q.logger.log('DEBUG: OnPrintReceived -> sender:%s, receiver:%s, messageid:%s'%(sender, receiver, messageid))
+        self.sendMessage(XMPPLogMessage(sender, receiver, resource, messageid, tasknumber, string))
+        
+    def _onExceptionReceived(self, tasknumber, type_, value, tb):
+        q.logger.log('DEBUG: tasknumber:%s, typeOfException:%s, value:%s, tb:%s'%(tasknumber, type_, value, tb))
+        sender, receiver, resource, messageid = self._tasknumberToClient[tasknumber]
+        q.logger.log('DEBUG: OnExceptionReceived -> sender:%s, receiver:%s, messageid:%s'%(sender, receiver, messageid))
+        self.sendMessage(XMPPLogMessage(sender, receiver, resource, messageid, tasknumber, "Exception: %s"%traceback.format_exception(type_, value, tb)))
+        
