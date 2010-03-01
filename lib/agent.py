@@ -263,6 +263,7 @@ class Agent(object):
                 self._tasknumberToClient[tasknumber] = (xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid)
                 self.robot.execute(tags, xmppCommandMessage.params, tasknumber)                
                 self.sendMessage(XMPPTaskNumberMessage(sender = xmppCommandMessage.receiver, receiver = xmppCommandMessage.sender, resource = xmppCommandMessage.resource, messageid = xmppCommandMessage.messageid, tasknumber = tasknumber))
+                
         except Exception, ex:
             q.logger.log('[Agent] Exception Occurred while trying to execute the command %s'%ex)
             
@@ -310,6 +311,9 @@ class Agent(object):
         self.sendMessage(XMPPLogMessage(sender, receiver, resource, messageid, tasknumber, string))
         
     def _onExceptionReceived(self, tasknumber, type_, value, tb):
+        q.logger.log('Task %s throws: %s'%(tasknumber,traceback.format_exception(type_, value, tb)))
+        q.logger.log('DEBUG: TASKNUMBER TO CLIENT %s'%self._tasknumberToClient)
         sender, receiver, resource, messageid = self._tasknumberToClient[tasknumber]
+        q.logger.log('DEBUG: ONEXCEPTIONRECEIVED: sender:%s, receiver:%s, resource:%s, messageid:%s'%(sender, receiver, resource, messageid))
         self.sendMessage(XMPPLogMessage(sender, receiver, resource, messageid, tasknumber, "Exception: %s"%traceback.format_exception(type_, value, tb)))
         

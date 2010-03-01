@@ -24,20 +24,19 @@ PyLabs robot module
 '''
 from killablethread import KillableThread
 from ThreadRedirector import ThreadRedirector
-
 from pymonkey import q
 import time
 import sys, threading
 import traceback
 
-
+def _excepthook(type_, value, tb):        
+        Robot.exceptionReceived(type_, value, tb)
+        
 class Robot(object):
     '''
     Main bot classs, scans a directory and create a tasklet engine for each group of commands, executes Robot tasks
     '''
-    _onPrintReceived = None
     _onExceptionReceived = None
-    
     def __init__(self):
         '''
         Constructor
@@ -52,22 +51,26 @@ class Robot(object):
         self._taskCompletedCallback = None
         
         q.system.fswalker.walk(q.system.fs.joinPaths(q.dirs.appDir, "agent", "cmds"), callback=self._processCommandDir, arg=self.COMMANDS, includeFolders=True, recursive=False)
+        
+        self._onPrintReceived = None
                     
         self.patch = ThreadRedirector()
-        self.patch.setOnPrintReceivedCallback(Robot.printReceived)
-        sys.stdout = self.patch        
+        self.patch.setOnPrintReceivedCallback(self.printReceived)
+        sys.stdout = self.patch
+        sys.excepthook = _excepthook        
         
-    @classmethod
-    def printReceived(cls, tasknumber, string):
-        if Robot._onPrintReceived:
-            Robot._onPrintReceived(tasknumber, string)
+    def printReceived(self, tasknumber, string):
+        if self._onPrintReceived:
+            self._onPrintReceived(tasknumber, string)
         else:
             q.logger.log('[Robot] Warning, no callback is registered for OnPrintReceived', 5)
-    
+            
     @classmethod
-    def exceptionReceived(cls, type_, value, tb):        
+    def exceptionReceived(cls, type_, value, tb):
+        q.logger.log('DEBUG, I HAVE GOT AN EXCEPTION...................')        
         curThread = threading.currentThread()
         if hasattr(curThread, 'tasknumber'):
+            q.logger.log('DEBUG: current Thread with tasknumber %s'%curThread.tasknumber)
             if Robot._onExceptionReceived:
                 Robot._onExceptionReceived(curThread.tasknumber, type_, value, tb)
             else:
@@ -87,7 +90,7 @@ class Robot(object):
         
         e.g def handler(tasknumber, string): 
         """
-        Robot._onPrintReceived = handler
+        self._onPrintReceived = handler
         
     def setOnExceptionReceivedCallback(self, handler):
         """
@@ -307,23 +310,9 @@ class Robot(object):
         del self.runningTasks[tasknumber]
         if self._taskCompletedCallback:
             self._taskCompletedCallback(tasknumber, returncode, returnvalue)
-    
-    def getRunningTasks(self):
-        """
-        Retrieves the dictionary fo the current running tasks
-        """
-        return self.runningTasks
-    
-    
-    def getTaskCompletedCallback(self):
-        """
-        Retrieves the callable object that we need to invoked when a task completed
-        """
-        return self._taskCompletedCallback
-    
+        
 
-def _excepthook(type_, value, tb):        
-        Robot.exceptionReceived(type_, value, tb)        
+        
     
 
 class RobotTask(KillableThread):
@@ -353,8 +342,7 @@ class RobotTask(KillableThread):
             q.logger.log('tags should be a list not string, creating a list of the input string....')
             tags = tuple([tags])
         self.tags = tags or list()
-        self.params = params
-        sys.excepthook = _excepthook
+        self.params = params    
         self._taskCompletedCallback = None
         self.tasknumber = tasknumber
 
@@ -369,12 +357,13 @@ class RobotTask(KillableThread):
             if self._taskCompletedCallback:
                 self._taskCompletedCallback(self.tasknumber, self.params.get('returncode', -1), self.params.get('returnvalue', 'No Return Value Found'))
         except:
-            if self._taskCompletedCallback:
-                self._taskCompletedCallback(self.tasknumber, self.params.get('returncode', -1), self.params.get('returnvalue', 'Exception Occurred'))
+            q.logger.log("DEBUG: exception occurred with sys.excepthook=%s"%sys.excepthook)            
             if sys.excepthook:
                 sys.excepthook(*sys.exc_info())
             else:
-                q.logger.log('Warning, no callback is registered in excepthook')        
+                q.logger.log('Warning, no callback is registered in excepthook')
+            if self._taskCompletedCallback:
+                self._taskCompletedCallback(self.tasknumber, self.params.get('returncode', -1), self.params.get('returnvalue', 'Exception Occurred'))        
     
     def getParams(self):
         """
