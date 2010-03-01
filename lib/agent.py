@@ -22,8 +22,9 @@ PyLabs agent module
 import signal
 import traceback
 from agentacl import AgentACL
-from robot import Robot, TaskManager
+from robot import Robot
 from xmppclient import XMPPClient, XMPPTaskNumberMessage, XMPPResultMessage, XMPPLogMessage
+
 from pymonkey.inifile import IniFile
 from pymonkey import q
 
@@ -76,7 +77,6 @@ class Agent(object):
         self.robot.setOnPrintReceivedCallback(self._onPrintReceived)
         self.robot.setOnExceptionReceivedCallback(self._onExceptionReceived)
         
-        self.taskManager = TaskManager(self.robot)
         self.robot.setTaskCompletedCallback(self._onTaskCompleted)
         
         signal.signal(signal.SIGTERM, self._stop)
@@ -188,8 +188,6 @@ class Agent(object):
         
         self.connectAllAccounts()
         self._status = q.enumerators.AppStatusType.RUNNING
-        q.logger.log('[Agent] starting the robot taskmanager....')
-        self.taskManager.start()
 
     def stop(self):
         """
@@ -309,12 +307,9 @@ class Agent(object):
             return
         q.logger.log('Task %s prints: %s'%(tasknumber,string))
         sender, receiver, resource, messageid = self._tasknumberToClient[tasknumber]
-        q.logger.log('DEBUG: OnPrintReceived -> sender:%s, receiver:%s, messageid:%s'%(sender, receiver, messageid))
         self.sendMessage(XMPPLogMessage(sender, receiver, resource, messageid, tasknumber, string))
         
     def _onExceptionReceived(self, tasknumber, type_, value, tb):
-        q.logger.log('DEBUG: tasknumber:%s, typeOfException:%s, value:%s, tb:%s'%(tasknumber, type_, value, tb))
         sender, receiver, resource, messageid = self._tasknumberToClient[tasknumber]
-        q.logger.log('DEBUG: OnExceptionReceived -> sender:%s, receiver:%s, messageid:%s'%(sender, receiver, messageid))
         self.sendMessage(XMPPLogMessage(sender, receiver, resource, messageid, tasknumber, "Exception: %s"%traceback.format_exception(type_, value, tb)))
         
