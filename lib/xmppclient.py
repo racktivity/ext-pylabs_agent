@@ -312,7 +312,7 @@ class XMPPMessageHandler(object):
             tasknumber = message[len(BEGIN_TASKNR):]
             return XMPPTaskNumberMessage(sender, receiver, resource, messageid, tasknumber)
         else:
-            return XMPPMessage(sender, receiver, resource, message, messageid)
+            return XMPPMessage(sender, receiver, resource, messageid, message)
         
     
     def _getArgumentsAndOptions(self, commandInput): 
@@ -338,7 +338,7 @@ class XMPPMessage(object):
     Class representing a generic PyLabs XMPP message
     """
     type_ = TYPE_UNKNOWN
-    def __init__(self, sender, receiver, message, resource, messageid=None):
+    def __init__(self, sender, receiver, resource, messageid, message):
         self.sender = sender
         self.receiver = receiver
         self.resource = resource

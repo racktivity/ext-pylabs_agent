@@ -261,8 +261,9 @@ class Agent(object):
                     self.sendMessage(XMPPResultMessage(xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid, tasknumber, 1, 'Task %s could not be stopped'%taskToBeStooped))
             else:                
                 self._tasknumberToClient[tasknumber] = (xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid)
-                self.robot.execute(tags, xmppCommandMessage.params, tasknumber)                
+                                
                 self.sendMessage(XMPPTaskNumberMessage(sender = xmppCommandMessage.receiver, receiver = xmppCommandMessage.sender, resource = xmppCommandMessage.resource, messageid = xmppCommandMessage.messageid, tasknumber = tasknumber))
+                self.robot.execute(tags, xmppCommandMessage.params, tasknumber)
                 
         except Exception, ex:
             q.logger.log('[Agent] Exception Occurred while trying to execute the command %s'%ex)

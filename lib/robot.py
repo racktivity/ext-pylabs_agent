@@ -67,10 +67,8 @@ class Robot(object):
             
     @classmethod
     def exceptionReceived(cls, type_, value, tb):
-        q.logger.log('DEBUG, I HAVE GOT AN EXCEPTION...................')        
         curThread = threading.currentThread()
         if hasattr(curThread, 'tasknumber'):
-            q.logger.log('DEBUG: current Thread with tasknumber %s'%curThread.tasknumber)
             if Robot._onExceptionReceived:
                 Robot._onExceptionReceived(curThread.tasknumber, type_, value, tb)
             else:
@@ -357,7 +355,6 @@ class RobotTask(KillableThread):
             if self._taskCompletedCallback:
                 self._taskCompletedCallback(self.tasknumber, self.params.get('returncode', -1), self.params.get('returnvalue', 'No Return Value Found'))
         except:
-            q.logger.log("DEBUG: exception occurred with sys.excepthook=%s"%sys.excepthook)            
             if sys.excepthook:
                 sys.excepthook(*sys.exc_info())
             else:
