@@ -335,6 +335,7 @@ class RobotTask(KillableThread):
             
         if params == None: # checking on None in case someone calling with params = dict()/{}
             params = dict()
+        params['tasknumber'] = tasknumber
         self.taskletengine = taskletengine        
         if isinstance(tags, str):
             q.logger.log('tags should be a list not string, creating a list of the input string....')
