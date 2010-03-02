@@ -34,9 +34,18 @@ class AgentACL(object):
     classdocs
     '''
     
-    def __init__(self, agentname, domain):
+    def __init__(self, agentname, domain, aclConfig = None):
         '''
         Constructor
+        
+        @param agentname: name of xmpp account
+        @type agentname: string
+        
+        @param domain: domain of the account on the ejabber server
+        @type doamin: string 
+        
+        @param aclConfig: list fo acl configuration for the account
+        @type aclConfig: list of dict 
         
         '''
         
@@ -56,7 +65,12 @@ class AgentACL(object):
         ** ACLs may be contradictory. && in other words
         """
         self.aclRules = dict()
-        self._parseConfigFile(agentname, domain)
+        if not aclConfig:
+            aclConfig = list()
+        self.aclConfig = aclConfig
+        self.agentname = agentname
+        self.domain = domain
+        self._processAclConfig()
     
     
     def isAuthenticated(self, agent):
@@ -175,6 +189,20 @@ class AgentACL(object):
                 filterEntry = filterEntry.strip() # takes care of the leading, trailing whitespace in the comma sperated list of filters
                 if filterEntry:
                     self._updateRules(filterEntry, aclInfo)
+    
+    
+    def _processAclConfig(self):
+        """
+        Process acl configuration list for an account, retrieves all the acls for this account and fills the aclRuls dict with the result
+        """
+        
+        for aclInfo in self.aclConfig:
+            filters = aclInfo['agentfilters'].split(',')
+            for filterEntry in filters:
+                filterEntry = filterEntry.strip() # takes care of the leading, trailing whitespace in the comma sperated list of filters
+                if filterEntry:
+                    self._updateRules(filterEntry, aclInfo)
+        
                     
                     
     def _updateRules(self, filterEntry, aclInfo):
@@ -196,5 +224,8 @@ class AgentACL(object):
             else:
                 self.aclRules[filterEntry][key] = bool(int(value)) 
         aclInfo['agentfilters'] = filterValue
+        
+        
+    
         
         
