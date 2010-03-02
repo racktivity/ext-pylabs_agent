@@ -29,8 +29,7 @@ import sys, threading
 
 
 class ThreadRedirector:
-    def __init__(self):
-        self.content = []
+    def __init__(self):        
         self._stream = sys.__stdout__
         self._onPrintReceived = None        
     
@@ -44,17 +43,17 @@ class ThreadRedirector:
         
     def write(self, string):
         try:
-            self.content.append(string)
             curThread = threading.currentThread()                
             if hasattr(curThread, 'tasknumber'):
                 if self._onPrintReceived:
                     self._onPrintReceived(curThread.tasknumber, string)
                 else:
-                    q.logger.log('[Robot] Warning, no callback is registered for onPrintReceived', 5)                        
+                    q.logger.log('Warning, no callback is registered for onPrintReceived', 5)                        
             else:                    
                 sys.__stdout__.write(string)                    
         except Exception, ex:
-            q.logger.log('[ThreadRedirector] Exception occurred while processing print messages , %s'%ex)
+            q.logger.log('Exception occurred while processing print messages , %s'%ex)
+            
     def __getattr__(self, attr):
         return getattr(self._stream, attr)
 

@@ -63,7 +63,7 @@ class Robot(object):
         if self._onPrintReceived:
             self._onPrintReceived(tasknumber, string)
         else:
-            q.logger.log('[Robot] Warning, no callback is registered for OnPrintReceived', 5)
+            q.logger.log('Warning, no callback is registered for OnPrintReceived', 5)
             
     @classmethod
     def exceptionReceived(cls, type_, value, tb):
@@ -72,7 +72,7 @@ class Robot(object):
             if Robot._onExceptionReceived:
                 Robot._onExceptionReceived(curThread.tasknumber, type_, value, tb)
             else:
-                q.logger.log('[Robot] Warning, no callback is registered for OnExceptionReceived', 5)                        
+                q.logger.log('Warning, no callback is registered for OnExceptionReceived', 5)                        
         else:
             sys.__excepthook__(*sys.exc_info()) # this means that this exception is not raised from tasklet/RobotTask            
 

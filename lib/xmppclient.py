@@ -21,6 +21,7 @@ THIS SOFTWARE IS PROVIDED BY INCUBAID "AS IS" AND ANY EXPRESS OR IMPLIED WARRANT
 from pymonkey import q, i
 import xmpp, select
 from threading import Thread
+import sys, traceback
 
 BEGIN_COMMAND = '!'
 END_COMMAND = '!'
@@ -63,7 +64,7 @@ class XMPPClient(object):
         self.port = port
         self._client = xmpp.Client(self.domain, port = self.port, debug = [])
      
-    def connect(self, server=None):
+    def connect(self, server):
         """
         Connects the client to xmpp server with the credentials specified
 
@@ -76,15 +77,15 @@ class XMPPClient(object):
         @raise e:                    In case an error occurred, exception is raised
         """        
         if self.status == 'CONNECTED':
-            q.logger.log("[XMPPCLIENT] Client is already connected to %s"%(self.server)) 
+            q.logger.log("Client is already connected to %s"%(self.server)) 
             return True       
         self.server = server
-        q.logger.log("[XMPPCLIENT] Starting the xmpp client to %s at %s"%(self.userJID, self.server), 5)
+        q.logger.log("Starting the xmpp client to %s at %s"%(self.userJID, self.server), 5)
         return self._connect()
     
     def _connect(self):
         self.status = 'CONNECTING'        
-        q.logger.log("[XMPPCLIENT] Connecting to server %s with xmpp user %s'" % (self.server, self.userJID) )
+        q.logger.log("Connecting to server %s with xmpp user %s'" % (self.server, self.userJID) )
         tries = 0 
         
         result = self._client.connect((self.server, self.port))
@@ -93,14 +94,14 @@ class XMPPClient(object):
             tries +=1
             
         if not self._client.connected:
-            q.logger.log('[XMPPCLIENT] Failed to connect to server:%s, port:%s'%(self.server, self.port))
+            q.logger.log('Failed to connect to server:%s, port:%s'%(self.server, self.port), 4)
             return False
         if self._client.auth(xmpp.JID(self.userJID).getNode(), self.userpassword):
             #authenticated
             self.status = 'RUNNING'
-            q.logger.log("[XMPPCLIENT] Server '%s' authenticated user '%s'"%(self.server, self.userJID), 5)
+            q.logger.log("Server '%s' authenticated user '%s'"%(self.server, self.userJID), 3)
         else:
-            q.logger.log('[XMPPCLIENT] Failed to authenticate user %s with server %s'%(self.userJID, self.server))
+            q.logger.log('Failed to authenticate user %s with server %s'%(self.userJID, self.server), 4)
             return False
             
         #Now it's connected
@@ -108,7 +109,7 @@ class XMPPClient(object):
         self._client.sendInitPresence()
         self._client.RegisterHandler('message', self._messageRecieved)
         self._client.RegisterHandler('presence', self._presenceReceived)
-        q.logger.log("[XMPPCLIENT] _connected:  Connected to server [%s], trying with usersname [%s]" % (self.server, self.userJID))
+        q.logger.log("Connected to server [%s], trying with usersname [%s]" % (self.server, self.userJID), 5)
         
         self._doConnect()
         
@@ -120,11 +121,14 @@ class XMPPClient(object):
             socketlist = {client.Connection._sock:'xmpp'}
             while True:            
                 (i , _, _) = select.select(socketlist.keys(),[],[],1)
-                for each in i:
-                    if socketlist[each] == 'xmpp':
-                        client.Process(1)                    
-                    else:
-                        q.logger.log("Unknown socket type: %s" % repr(socketlist[each]))
+                try:
+                    for each in i:
+                        if socketlist[each] == 'xmpp':                        
+                            client.Process(1)                    
+                        else:
+                            q.logger.log("Unknown socket type: %s" % repr(socketlist[each]))
+                except:
+                    q.logger.log('Exception occurred while listening %s'%traceback.format_exception(*sys.exc_info()), 4)
 
         t = Thread(target=_listen, args=(self._client,))
         #t = Thread(target=self._listen)
@@ -134,7 +138,7 @@ class XMPPClient(object):
         type_ = message.getType()
         fromm = message.getFrom().getStripped() or ''
             
-        q.logger.log("[XMPPCLIENT] Presence received from %s of type %s"%(fromm, type_), 5)
+        q.logger.log("Presence received from %s of type %s"%(fromm, type_), 5)
         
     def _messageRecieved(self, conn, message):
         sender = message.getFrom().getStripped()
@@ -144,7 +148,7 @@ class XMPPClient(object):
         message = message.getBody()
         
         
-        q.logger.log('[XMPPCLIENT] Message is received, from:%s, to:%s, id:%s, body:%s'%(sender, receiver, messageid, message)) 
+        q.logger.log('Message is received, from:%s, to:%s, id:%s, body:%s'%(sender, receiver, messageid, message)) 
         
         messageHanlder = XMPPMessageHandler()
         messageObject = messageHanlder.deserialize(sender, receiver, resource, messageid, message)
@@ -153,7 +157,7 @@ class XMPPClient(object):
         if callback:
             callback(messageObject)
         else:
-            q.logger.log("[XMPPCLIENT] Warning, no callback is registered for type:%s"%messageObject.type_)
+            q.logger.log("Warning, no callback is registered for type:%s"%messageObject.type_)
             
             
     def disconnect(self):
@@ -166,10 +170,10 @@ class XMPPClient(object):
         @raise e:                    In case an error occurred, exception is raised
         """
         if self.status == 'NOT_CONNECTED':
-            q.logger.log('[XMPPCLIENT] client is already not connected')
+            q.logger.log('Client is already not connected')
             return True
         
-        q.logger.log("[XMPPCLIENT] Stopping the xmpp client to %s at server: %s"%(self.userJID, self.server), 5)
+        q.logger.log("Stopping the xmpp client to %s at server: %s"%(self.userJID, self.server), 5)
         self._client.disconnect()
         self.status = 'NOT_CONNECTED'
         return True
@@ -182,10 +186,10 @@ class XMPPClient(object):
         @type type: string
         '''
         if self.status <> 'RUNNING' and self.status <> 'CONNECTED':
-            q.logger.log("client is not connected")
+            q.logger.log("Client is not connected")
             return
         
-        q.logger.log("[XMPPCLIENT] Sending presence of type %s to %s"%(str(type_), str(to)), 5)
+        q.logger.log("Sending presence of type %s to %s"%(str(type_), str(to)), 5)
         self._client.send(xmpp.Presence(to = to, typ = type_))
         
     def sendMessage(self, xmppmessage):
@@ -200,14 +204,14 @@ class XMPPClient(object):
         """        
         
         if self.status <> 'RUNNING' and self.status <> 'CONNECTED':
-            q.logger.log("client is not connected")
+            q.logger.log("Client is not connected")
             return
         
         sender = xmppmessage.sender
         receiver = xmppmessage.receiver
         resource = xmppmessage.resource 
         
-        q.logger.log("[XMPPCLIENT] Sending message [%s] from:%s to:%s'"%(str(xmppmessage), sender, receiver),5)
+        q.logger.log("Sending message [%s] from:%s to:%s'"%(str(xmppmessage), sender, receiver),5)
         msg = xmpp.Message(to = '%s/%s'%(receiver, resource), body = str(xmppmessage), typ = 'chat')
         msg.setID(xmppmessage.messageid)            
         return self._client.send(msg)
@@ -290,28 +294,30 @@ class XMPPMessageHandler(object):
         """
         message = message or '' # to avoid None message sent while is typing event
         message = message.strip()
-        
-        if message.startswith(BEGIN_RESULT): # we must check on result before checking on command prefix
-            index = message.find('\n')            
-            tasknumber, returncode = message[len(BEGIN_RESULT):index].split()
-            returnvalue = message[index+1:-len(END_RESULT)]
-            return XMPPResultMessage(sender, receiver, resource, messageid, tasknumber, returncode, returnvalue)
-        elif message.startswith(BEGIN_COMMAND):# !<command> [subcommand]\n[params]*\n!
-            index = message.find('\n')                     
-            commandLine = message[len(BEGIN_COMMAND):index].split()
-            command = commandLine.pop(0)
-            subcommand = commandLine[0] if commandLine else ''            
-            args, options= self._getArgumentsAndOptions(message[index+1:])
-            return XMPPCommandMessage(sender, receiver, resource, messageid, command, subcommand, {'params':args, 'options':options})
-        elif message.startswith(BEGIN_LOG): # @<tasknr>|<logentry>            
-            index = message.find('|')
-            tasknumber = message[1:index]
-            logentry = message[index+1:]
-            return XMPPLogMessage(sender, receiver, resource, messageid, tasknumber, logentry)
-        elif message.startswith(BEGIN_TASKNR):# <ID>Tasknumber          
-            tasknumber = message[len(BEGIN_TASKNR):]
-            return XMPPTaskNumberMessage(sender, receiver, resource, messageid, tasknumber)
-        else:
+        try:            
+            if message.startswith(BEGIN_RESULT): # we must check on result before checking on command prefix
+                index = message.find('\n')            
+                tasknumber, returncode = message[len(BEGIN_RESULT):index].split()
+                returnvalue = message[index+1:-len(END_RESULT)]
+                return XMPPResultMessage(sender, receiver, resource, messageid, tasknumber, returncode, returnvalue)
+            elif message.startswith(BEGIN_COMMAND):# !<command> [subcommand]\n[params]*\n!
+                index = message.find('\n')                     
+                commandLine = message[len(BEGIN_COMMAND):index].split()
+                command = commandLine.pop(0)
+                subcommand = commandLine[0] if commandLine else ''            
+                args, options= self._getArgumentsAndOptions(message[index+1:])
+                return XMPPCommandMessage(sender, receiver, resource, messageid, command, subcommand, {'params':args, 'options':options})
+            elif message.startswith(BEGIN_LOG): # @<tasknr>|<logentry>            
+                index = message.find('|')
+                tasknumber = message[1:index]
+                logentry = message[index+1:]
+                return XMPPLogMessage(sender, receiver, resource, messageid, tasknumber, logentry)
+            elif message.startswith(BEGIN_TASKNR):# <ID>Tasknumber          
+                tasknumber = message[len(BEGIN_TASKNR):]
+                return XMPPTaskNumberMessage(sender, receiver, resource, messageid, tasknumber)
+            else:
+                return XMPPMessage(sender, receiver, resource, messageid, message)
+        except Exception:
             return XMPPMessage(sender, receiver, resource, messageid, message)
         
     

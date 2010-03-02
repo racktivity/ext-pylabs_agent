@@ -58,21 +58,23 @@ class Agent(object):
             raise RuntimeError('Agent config file %s does not exist')
         
         sections = q.config.getConfig('agent') 
-        for sectionInfo in sections.values(): 
-            if 'agentname' in sectionInfo:
-                jid = "%s@%s"%(sectionInfo.get('agentname'), sectionInfo.get('domain'))
-                self.accounts[jid] = XMPPClient(jid, sectionInfo.get('password'))
-                self.acl[jid] = AgentACL(sectionInfo.get('agentname'), sectionInfo.get('domain'))
-                self._servers[jid] = sectionInfo.get('server')
-                # register the required events
-                self.accounts[jid].setCommandReceivedCallback(self._onCommandReceived)
-                self.accounts[jid].setLogReceivedCallback(self._onLogReceived)
-                self.accounts[jid].setErrorReceivedCallback(self._onErrorReceived)
-                self.accounts[jid].setResultReceivedCallback(self._onResultReceived)
-                self.accounts[jid].setMessageReceivedCallback(self._onMessageReceived)
-                enabled = sectionInfo.get('enabled')
-                self._isEnabled[jid] = True if enabled == '1' or enabled == 'True' else False                
-                
+        
+        for accountSection in filter(lambda x: x.startswith('account_'), sections):
+            sectionInfo = sections[accountSection]        
+            jid = "%s@%s"%(sectionInfo.get('agentname'), sectionInfo.get('domain'))
+            client = XMPPClient(jid, sectionInfo.get('password'))
+            self.acl[jid] = AgentACL(sectionInfo.get('agentname'), sectionInfo.get('domain'), map(lambda x: sections[x], filter(lambda x: x.endswith(accountSection[8:]) and x.startswith('acl'), sections)))
+            self._servers[jid] = sectionInfo.get('server')
+            # register the required events
+            client.setCommandReceivedCallback(self._onCommandReceived)
+            client.setLogReceivedCallback(self._onLogReceived)
+            client.setErrorReceivedCallback(self._onErrorReceived)
+            client.setResultReceivedCallback(self._onResultReceived)
+            client.setMessageReceivedCallback(self._onMessageReceived)
+            self.accounts[jid] = client
+            enabled = sectionInfo.get('enabled')
+            self._isEnabled[jid] = True if enabled == '1' or enabled == 'True' else False                
+            
         self.robot = Robot()
         self.robot.setOnPrintReceivedCallback(self._onPrintReceived)
         self.robot.setOnExceptionReceivedCallback(self._onExceptionReceived)
@@ -98,11 +100,11 @@ class Agent(object):
         @raise e:                    In case an error occurred, exception is raised
         """
         if not jid in self.accounts:
-            q.logger.log('Account %s does not exist'% jid)
+            q.logger.log('Account %s does not exist'% jid, 4)
             return
         
         if not self._isEnabled[jid]:
-            q.logger.log('Account %s is not enabled'% jid)
+            q.logger.log('Account %s is not enabled'% jid, 4)
             return
         
         self.accounts[jid].connect(self._servers[jid])
@@ -136,7 +138,7 @@ class Agent(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-        for jid in self.accounts.keys():
+        for jid in self.accounts:
             if self._isEnabled[jid]:
                 self.accounts[jid].connect(self._servers[jid])
     
@@ -150,7 +152,7 @@ class Agent(object):
         @raise e:                    In case an error occurred, exception is raised
         """
         
-        for jid in self.accounts.keys():
+        for jid in self.accounts:
             if self._isEnabled[jid]:
                 self.accounts[jid].disconnect()
 
@@ -224,11 +226,11 @@ class Agent(object):
         REMARK!
         ## Kill and stop are exceptions, the should call killTask or stopTask on robot
         """
-        q.logger.log('Command Message is received: %s'% xmppCommandMessage.format())
+        q.logger.log('Command Message is received: %s'% xmppCommandMessage.format(), 5)
         
         jid = xmppCommandMessage.sender
-        if not xmppCommandMessage.receiver  in self.acl:
-            q.logger.log('Account %s has no ACLs'% xmppCommandMessage.receiver)
+        if not xmppCommandMessage.receiver in self.acl:
+            q.logger.log('Account %s has no ACLs, command ignored'% xmppCommandMessage.receiver, 4)
             return
             
         tags = [xmppCommandMessage.command]        
@@ -236,29 +238,25 @@ class Agent(object):
             tags.append(xmppCommandMessage.subcommand)
                         
         try:
-            taskletsPaths = self.robot.findCommands(tuple(tags))
-            if not taskletsPaths:
-                q.logger.log('No Tasklets found for command:%s ,subcommand:%s'%(xmppCommandMessage.command, xmppCommandMessage.subcommand))
+            commandPaths = self.robot.findCommands(tuple(tags))
+            if not commandPaths:
+                q.logger.log('No command path found for command:%s, subcommand:%s'%(xmppCommandMessage.command, xmppCommandMessage.subcommand))
             
-            for taskletPath in taskletsPaths:
-                if not self.acl[xmppCommandMessage.receiver].isAuthorized(jid, taskletPath):
-                    q.logger.log(' [%s] is not authorized to execute this tasklet:%s'%(jid, taskletPath))
+            for commandPath in commandPaths:
+                if not self.acl[xmppCommandMessage.receiver].isAuthorized(jid, commandPath):
+                    q.logger.log('[%s] is not authorized to execute this command:%s'%(jid, commandPath))
                     return
             
             tasknumber = self.robot.getNextTaskNumber()
             
             if xmppCommandMessage.command.lower() == 'killtask':
                 taskToBeKilled = int(xmppCommandMessage.params['params'][0])
-                if self.robot.killTask(taskToBeKilled):
-                    self.sendMessage(XMPPResultMessage(xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid, tasknumber, 0, 'Task %s is killed successfully '%taskToBeKilled))
-                else:
-                    self.sendMessage(XMPPResultMessage(xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid, tasknumber, 1, 'Task %s could not be killed'%taskToBeKilled))   
+                result = self.robot.killTask(taskToBeKilled)
+                self.sendMessage(XMPPResultMessage(xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid, tasknumber, 0 if result else 1, ''))   
             elif xmppCommandMessage.command.lower() == 'stoptask':
                 taskToBeStooped = int(xmppCommandMessage.params['params'][0])
-                if self.robot.stopTask(taskToBeStooped):                
-                    self.sendMessage(XMPPResultMessage(xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid, tasknumber, 0, 'Task %s stopped successfully '%taskToBeStooped))
-                else:
-                    self.sendMessage(XMPPResultMessage(xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid, tasknumber, 1, 'Task %s could not be stopped'%taskToBeStooped))
+                result = self.robot.stopTask(taskToBeStooped)                
+                self.sendMessage(XMPPResultMessage(xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid, tasknumber, 0 if result else 1, ''))
             else:                
                 self._tasknumberToClient[tasknumber] = (xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid)
                                 
@@ -266,7 +264,7 @@ class Agent(object):
                 self.robot.execute(tags, xmppCommandMessage.params, tasknumber)
                 
         except Exception, ex:
-            q.logger.log('[Agent] Exception Occurred while trying to execute the command %s'%ex)
+            q.logger.log('Exception Occurred while trying to execute the command %s'%ex)
             
 
     def _onLogReceived(self, xmppLogMessage):
