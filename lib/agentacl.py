@@ -105,6 +105,9 @@ class AgentACL(object):
         """
 
         result = self._resolveAuthenticatedAgent(agent)
+        if not result:
+            return False 
+        
         """
         ** If agent found
         *** Search for exact path
@@ -112,19 +115,18 @@ class AgentACL(object):
         ***** E.g. ACL may not contain path system/qshellcmd but might contain system/*
         """
         path = self._getRelativePath(path)
-        if result:
-            item = result.get(path, None)
-            if item == None:
-                itemsWithWildCards = filter(lambda x: x[0].find('*') != 0, result.items())
-                for key, _ in itemsWithWildCards:
-                    pattern = re.compile('%s$'%key.replace('*', '.*'))
-                    match = pattern.match(path)
-                    if match:
-                        return True
-            else:
-                return item
-        return False
-                    
+        if path in result:
+            return result[path]
+        itemsWithWildCards = filter(lambda x: x[0].find('*') != 0, result.items())
+        result = False
+        for key, value in itemsWithWildCards:
+            pattern = re.compile('%s$'%key.replace('*', '.*'))
+            match = pattern.match(path)
+            if match:
+                result =  value
+                break
+        return result
+                
     
     def _getRelativePath(self, path):
         """
@@ -145,51 +147,20 @@ class AgentACL(object):
         
         * Return item found or None in case no match was found 
         """
+        item = None
+        if agent in self.aclRules:
+            return self.aclRules[agent]
         
-        item = self.aclRules.get(agent, None)
-        if not item:
-            itemsWithWildCards = filter(lambda x : x[0].find('*') != -1, self.aclRules.items())
-            for key, value in itemsWithWildCards:
-                pattern = re.compile('%s$'%key.replace('*', '.*'))
-                match = pattern.match(agent)
-                if match:
-                    item = value
-                    break
+        itemsWithWildCards = filter(lambda x : x[0].find('*') != -1, self.aclRules.items())
+        for key, value in itemsWithWildCards:
+            pattern = re.compile('%s$'%key.replace('*', '.*'))
+            match = pattern.match(agent)
+            if match:
+                item = value
+                break
         return item
             
         
-    def _parseConfigFile(self, agentname, domain):
-        """
-        Parses the agent config file and constructs a dictionary of dictionaries
-        
-        @param agentname: name of the agent
-        @param domain: agent domain
-        """
-        if not 'agent' in q.config.list():
-            raise RuntimeError('Agent config file does not exit')
-        agentConfig = q.config.getConfig('agent')
-        for section in filter(lambda item: item != 'main', agentConfig.keys()):
-            sectionInfo = agentConfig.get(section)
-            if sectionInfo.get('agentname', False) == agentname and sectionInfo.get('domain', False) == domain:
-                self._processSection(agentConfig, section)
-            
-    
-    def _processSection(self, agentConfig, section):
-        """
-        Process an account section, retrieves all the acls for this account and fills the aclRuls dict with the result
-        
-        @param agentConfig: the agent config as dictionary
-        @param section: section to process
-        """
-        accountAcls = filter(lambda x : x.startswith('%s_'%section), agentConfig.keys()) # '%s_'%section to prevent the account itself from appearing in the list
-        for accountAcl in accountAcls:
-            aclInfo = agentConfig.get(accountAcl)
-            filters = aclInfo['agentfilters'].split(',')
-            for filterEntry in filters:
-                filterEntry = filterEntry.strip() # takes care of the leading, trailing whitespace in the comma sperated list of filters
-                if filterEntry:
-                    self._updateRules(filterEntry, aclInfo)
-    
     
     def _processAclConfig(self):
         """
@@ -197,33 +168,31 @@ class AgentACL(object):
         """
         
         for aclInfo in self.aclConfig:
-            filters = aclInfo['agentfilters'].split(',')
-            for filterEntry in filters:
-                filterEntry = filterEntry.strip() # takes care of the leading, trailing whitespace in the comma sperated list of filters
-                if filterEntry:
-                    self._updateRules(filterEntry, aclInfo)
+            jids = aclInfo['agentfilters'].split(',')
+            aclInfo.pop('agentfilters')
+            for jid in jids:
+                jid = jid.strip()
+                if jid:
+                    self._updateRules(jid, aclInfo)
         
                     
-                    
-    def _updateRules(self, filterEntry, aclInfo):
+    def _updateRules(self, jid, aclInfo):
         """
         Update the acls rules of a filter entry with the new acl info, if the filter already exists it will update the current 
         acl entry by && the existing acls for this filter, and adding new key and values for the filter if not exist
         
-        @param filterEntry: the filter entry
+        @param jid: the filter jid
         @param aclInfo: the acl info as dict
         """
-        filterValue = aclInfo.pop('agentfilters')
-        if not filterEntry in self.aclRules.keys():
-            self.aclRules[filterEntry] = dict()
+        if not jid in self.aclRules.keys():
+            self.aclRules[jid] = dict()
             
         for key, value in aclInfo.items():
-            if key in self.aclRules[filterEntry].keys():
+            if key in self.aclRules[jid]:
                 #if the rule already exist take the most pessimistic one, in other words &&
-                self.aclRules[filterEntry][key] = self.aclRules[filterEntry][key] and bool(int(value))
+                self.aclRules[jid][key] = self.aclRules[jid][key] and bool(int(value))
             else:
-                self.aclRules[filterEntry][key] = bool(int(value)) 
-        aclInfo['agentfilters'] = filterValue
+                self.aclRules[jid][key] = bool(int(value)) 
         
         
     

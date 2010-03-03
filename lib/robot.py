@@ -63,7 +63,7 @@ class Robot(object):
         if self._onPrintReceived:
             self._onPrintReceived(tasknumber, string)
         else:
-            q.logger.log('Warning, no callback is registered for OnPrintReceived', 5)
+            q.logger.log('Warning, no callback is registered for OnPrintReceived', 4)
             
     @classmethod
     def exceptionReceived(cls, type_, value, tb):
@@ -72,7 +72,7 @@ class Robot(object):
             if Robot._onExceptionReceived:
                 Robot._onExceptionReceived(curThread.tasknumber, type_, value, tb)
             else:
-                q.logger.log('Warning, no callback is registered for OnExceptionReceived', 5)                        
+                q.logger.log('Warning, no callback is registered for OnExceptionReceived', 4)                        
         else:
             sys.__excepthook__(*sys.exc_info()) # this means that this exception is not raised from tasklet/RobotTask            
 
@@ -124,22 +124,25 @@ class Robot(object):
         ** self.tasks[tasknumber] = task
         * start RobotTask() in separate thread
         """
+        if not isinstance(tags, (list, tuple)):
+            raise ValueError('Invalid tags, tags should be either list or tuple')
         resultEngines = self._searchTaskletEngines(tags)
         key = resultEngines.keys()[0] if resultEngines else False
         #for first iteration dont do anything if there is more than one tasklet matching the tags
         if key and (len(resultEngines.keys()) > 1 or len(resultEngines[key]) > 1):
             raise RuntimeError('More than one tasklet found for tags %s'%tags)
-        elif key :
-            engine = self.COMMANDS[key] 
-            q.logger.log('Got taskletEngine %s for group %s'%(engine, key))
-            tasknumber = tasknumber or self._generateTaskNumber()
-            task = RobotTask(engine, tags, tasknumber, params)
-            task.setTaskCompletedCallback(self._OnTaskCompleted)
-            self.runningTasks[tasknumber] = task
-            task.start()
-            return tasknumber
-        q.logger.log('No Tasklet found for tags %s and param %s'%(tags, params))
-        return -1
+        elif not key:
+            q.logger.log('No Tasklet found for tags %s and param %s'%(tags, params))
+            return -1
+
+        engine = self.COMMANDS[key] 
+        q.logger.log('Got taskletEngine %s for group %s'%(engine, key), 5)
+        tasknumber = tasknumber or self._generateTaskNumber()
+        task = RobotTask(engine, tags, tasknumber, params)
+        task.setTaskCompletedCallback(self._onTaskCompleted)
+        self.runningTasks[tasknumber] = task
+        task.start()
+        return tasknumber
     
     
     def getNextTaskNumber(self):
@@ -195,17 +198,14 @@ class Robot(object):
         
         @return: return a dictionary of the groupname and the tasklets matches the tags under this groupname
         """
-        q.logger.log('Searching avialable tasklets engines for tasklets with tags %s '%str(tags))
-        if isinstance(tags, str):
-            q.logger.log('tags should be a list not string, creating a list of the input string....')
-            tags = tuple([tags])
-        result = dict()
-        for groupName, taskletEngine in self.COMMANDS.items():
-            foundTasklets = taskletEngine.find(tags = tags)
-            if foundTasklets:
-                result[groupName] = foundTasklets
-        q.logger.log('Search results are %s'%result)
-        return result          
+        q.logger.log('Searching available tasklets engines for tasklets with tags %s '%str(tags))
+#        result = dict()
+#        for groupName, taskletEngine in self.COMMANDS.items():
+#            foundTasklets = taskletEngine.find(tags = tags)
+#            if foundTasklets:
+#                result[groupName] = foundTasklets
+        return dict(filter(lambda item: item[1],map(lambda item: (item[0], item[1].find(tags = tags)), self.COMMANDS.items())))
+#        return result          
         
     
     def killTask(self, tasknumber):
@@ -220,12 +220,12 @@ class Robot(object):
         
         @raise e:                    In case an error occurred, exception is raised
         """
-        timeout = 10 #number of seconds i will wait and check whether the thread killed or not before reporting failed termination, sould be parameter ??
+        timeout = 10 #number of seconds i will wait and check whether the thread killed or not before reporting failed termination, should be parameter ??
         killed = False
-        task = self.runningTasks.get(tasknumber, False)
-        if not task:
+        if not tasknumber in self.runningTasks:
             q.logger.log('No Task found with number %s'%tasknumber)
             return True
+        task = self.runningTasks[tasknumber]
         if not task.isAlive():
             del self.runningTasks[tasknumber]
             q.logger.log('Task %s is terminated normally'%tasknumber)
@@ -234,8 +234,7 @@ class Robot(object):
         try:
             task.terminate()
         except Exception, ex:
-            q.logger.log('Failed to terminate running task %s. Reason: %s'%(tasknumber, str(ex)), 3)
-            traceback.print_exc()
+            q.logger.log('Failed to terminate running task %s. Reason: %s'%(tasknumber, str(ex)), 4)
             return False
         while timeout:
             if not task.isAlive():
@@ -246,7 +245,8 @@ class Robot(object):
         if not killed:
             q.logger.log('Failed to terminate running task %s'%tasknumber)
             return False
-        del self.runningTasks[tasknumber]
+        if tasknumber in self.runningTasks:
+            del self.runningTasks[tasknumber]
         return True
         
     
@@ -292,7 +292,7 @@ class Robot(object):
 
     
     
-    def _OnTaskCompleted(self, tasknumber, returncode, returnvalue):
+    def _onTaskCompleted(self, tasknumber, returncode, returnvalue):
         """
         Remove compoleted task from the running tasks and triggers any registered callbacks for this event
         
@@ -306,8 +306,7 @@ class Robot(object):
         @type returnvalue: string
         """
         del self.runningTasks[tasknumber]
-        if self._taskCompletedCallback:
-            self._taskCompletedCallback(tasknumber, returncode, returnvalue)
+        self._taskCompletedCallback and self._taskCompletedCallback(tasknumber, returncode, returnvalue)
         
 
         
@@ -333,13 +332,10 @@ class RobotTask(KillableThread):
         """
         KillableThread.__init__(self)
             
-        if params == None: # checking on None in case someone calling with params = dict()/{}
+        if params == None:
             params = dict()
         params['tasknumber'] = tasknumber
         self.taskletengine = taskletengine        
-        if isinstance(tags, str):
-            q.logger.log('tags should be a list not string, creating a list of the input string....')
-            tags = tuple([tags])
         self.tags = tags or list()
         self.params = params    
         self._taskCompletedCallback = None
@@ -352,9 +348,9 @@ class RobotTask(KillableThread):
         self.taskletengine.executeFirst(self.params, self.tags)
         """
         try:
-            self.taskletengine.execute(params = self.params, tags = self.tags)
+            self.taskletengine.execute(params=self.params, tags=self.tags)
             if self._taskCompletedCallback:
-                self._taskCompletedCallback(self.tasknumber, self.params.get('returncode', -1), self.params.get('returnvalue', 'No Return Value Found'))
+                self._taskCompletedCallback(self.tasknumber, self.params.get('returncode', -1), self.params.get('returnvalue', ''))
         except:
             if sys.excepthook:
                 sys.excepthook(*sys.exc_info())
@@ -365,7 +361,7 @@ class RobotTask(KillableThread):
     
     def getParams(self):
         """
-        Retrives the params of the current task
+        Retrieves the params of the current task
         """
         return self.params
     

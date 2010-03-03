@@ -87,9 +87,9 @@ class RobotTest(unittest.TestCase):
     
     def testFindCommands(self):
         tags = ('test', )
-        self.assertNotEqual(self.robot.findCommands(tags = tags, params = dict()), list(), 'expected list of at least one item, found empty list')
+        self.assertNotEqual(self.robot.findCommands(tags = tags), list(), 'expected list of at least one item, found empty list')
         tags = ('test1', )
-        self.assertEqual(self.robot.findCommands(tags = tags, params = dict()), list(), 'expected an empty list, found list with items')
+        self.assertEqual(self.robot.findCommands(tags = tags), list(), 'expected an empty list, found list with items')
         
     def testExecute(self):
         tags = ('test', )
