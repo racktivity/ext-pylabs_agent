@@ -2,21 +2,8 @@ __author__ = 'incubaid'
 __tags__ = 'portforward', 'open'
 __priority__= 1
 
-fScriptMain = \
-"""
-connection  = q.remote.system.connect('%s', '%s' , '%s')
-%s
-"""
+import time
 
-rScript = \
-"""
-connection.portforward.forwardRemotePort(%d, '%s', %d)
-"""
-
-lScript = \
-"""
-connection.portforward.forwardLocalPort(%d, '%s', %d)
-"""
 
 def match(q, i, params, tags):
     q.logger.log("portforward params:%s tags:%s"%(params,tags))
@@ -29,20 +16,40 @@ def _processLoginInfo(loginPasswordServer):
 
 def main(q, i, params, tags):
     q.logger.log("portforward params:%s tags:%s"%(params,tags))
-    
+    timeout = 5
     args = params['params']
     serverport, localDestination, portOnDestination, loginPasswordServer = args
     q.logger.log("serverport:%s localDestination:%s portOnDestination:%s loginPasswordServer:%s"%(serverport, localDestination, portOnDestination, loginPasswordServer))
     login, password, server = _processLoginInfo(loginPasswordServer)
     q.logger.log('login: %s, password: %s, server: %s'%(login, password, server))
+#    connection = q.remote.system.connect(server, login, password)
+    #user 0/1 to indicates local/remote portforwarding, using int(local) in the runner DONT CHANGE HERE WITHOUT CHANGING IN THE RUNNER
+    local = 1
     if '-R' in params['options']:
-        script = fScriptMain%(server, login, password, rScript%(int(serverport), localDestination, int(portOnDestination)))
-    else:
-        script = fScriptMain%(server, login, password, lScript%(int(serverport), localDestination, int(portOnDestination)))
-    code = compile(script,'<string>','exec')
-    local_ns = {'params':params, 'q':q, 'i':i}
-    global_ns = local_ns
-    exec(code, global_ns, local_ns)
+#        connection.portforward.forwardRemotePort(int(serverport), localDestination, int(portOnDestination))
+        local = 0
 
-def match(q, i, params, tags):
-    return True
+#    else:
+#        connection.portforward.forwardLocalPort(int(serverport), localDestination, int(portOnDestination))
+    newPidFileName = '%s_%s.pid'%('local' if local else 'remote', serverport)
+    newPidFilePath = q.system.fs.joinPaths(q.dirs.pidDir, newPidFileName)
+    if q.system.fs.isFile(newPidFilePath):
+        raise RuntimeError('Port %s already in use'%serverport)
+    python_bin = q.system.fs.joinPaths(q.dirs.binDir, 'python')
+    runnerScriptPath = q.system.fs.joinPaths(q.dirs.appDir, 'agent','lib', 'portforwardrunner.py')
+    pidFilePath = q.system.fs.joinPaths(q.dirs.pidDir, '%s_portforward.pid'%params['tasknumber'])
+    command = '%s %s start %s %s %s %s %s %s %s %s'%(python_bin, runnerScriptPath, pidFilePath, local, server, login, password, serverport, localDestination, portOnDestination)
+    q.system.process.execute(command)
+    pidExists = False
+    while timeout:
+        if q.system.fs.isFile(pidFilePath):
+            pidExists = True
+            break
+        time.sleep(1)
+        timeout -= 1
+    if not pidExists:
+        raise RuntimeError('Failed to start portforward daemon. Reason cannot find pid file in %s seconds'%timeout)
+    pid = int(q.system.fs.fileGetContents(pidFilePath))
+    q.system.fs.writeFile(newPidFilePath, str(pid))
+    params['returncode'] = 0
+    params['returnvalue'] = 'Successfully open port'
