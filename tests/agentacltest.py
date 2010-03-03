@@ -32,59 +32,27 @@ from pymonkey import q, i
 
 from agentacl import AgentACL
 
-agentConfigConent = \
-"""
-[main]
-enable_cron = True
-cron_interval = 10
 
-[account_account1]
-agentname = domain.com
-domain = sso.daas.com
-password = 1234
-server = xmpp.sso.daas.com
-
-[account_account1_acl1]
-agentfilters = ssoupdate@noc.sso.daas.com
-system/qshellcmd = 0
-system/shellcmd = 0
-qpackages/update = 1
-qpackages/install = 1
-system/* = 1
-
-[account_account1_acl2]
-agentfilters = *@noc.sso.daas.com
-system/remote/forward = 1
-
-[account_account1_acl3]
-agentfilters = ssoread@noc.sso.daas.com, ssoupdate@noc.sso.daas.com
-qpackages/install = 1
-qpackages/update = 0
-
-
-[account_account2]
-agentname = node1
-domain = domain.com
-password = 1234
-server = 172.22.22.1
-"""
+aclConfig = [{'agentfilters': 'ssoupdate@noc.sso.daas.com',
+ 'qpackages/install': '1',
+ 'qpackages/update': '1',
+ 'system/*': '1',
+ 'system/qshellcmd': '0',
+ 'system/shellcmd': '0'}, {'agentfilters': '*@noc.sso.daas.com', 'system/remote/forward': '1'}, {'agentfilters': 'ssoread@noc.sso.daas.com, ssoupdate@noc.sso.daas.com',
+ 'qpackages/install': '1',
+ 'qpackages/update': '0'}]
 
 class AgentACLTest(unittest.TestCase):
     
     
     def setUp(self):
         self.agentname = 'domain.com'
-        self.domain = 'sso.daas.com'
-        self.cfgFilePath = q.system.fs.joinPaths(q.dirs.cfgDir, 'qconfig', 'agent.cfg')
-        q.system.fs.moveFile(self.cfgFilePath, '%s.bak'%self.cfgFilePath)
-        q.system.fs.writeFile(self.cfgFilePath, agentConfigConent)
-        self.agentacl = AgentACL(self.agentname, self.domain)
+        self.domain = 'test'
+        self.agentacl = AgentACL(self.agentname, self.domain, aclConfig)
         
     
     def tearDown(self):
         del self.agentacl
-        q.system.fs.moveFile('%s.bak'%self.cfgFilePath, self.cfgFilePath)
-        self.cfgFilePath = None
         self.domain = None
         self.agentname = None
     
