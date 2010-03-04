@@ -28,6 +28,7 @@ from xmppclient import XMPPClient, XMPPTaskNumberMessage, XMPPResultMessage, XMP
 from pymonkey.inifile import IniFile
 from pymonkey import q
 
+from xmpplogtarget import XMPPLogTarget
 
 class Agent(object):
     '''
@@ -83,6 +84,10 @@ class Agent(object):
         
         signal.signal(signal.SIGTERM, self._stop)
         signal.signal(signal.SIGINT, self._stop)
+        
+        xmppLogTarget = XMPPLogTarget()
+        xmppLogTarget.setLogReceivedCallback(self._logReceived) 
+        q.logger.logTargetAdd(xmppLogTarget)
         
     def _stop(self, signum, frames):
         self.stop()        
@@ -299,8 +304,8 @@ class Agent(object):
         """
         q.logger.log('Task %s completed, result message will be constructed..'%tasknumber)
         sender, receiver, resource, messageid = self._tasknumberToClient[tasknumber]
-        del self._tasknumberToClient[tasknumber]
         self.sendMessage(XMPPResultMessage(sender, receiver, resource, messageid, tasknumber, returncode, returnvalue))
+        del self._tasknumberToClient[tasknumber]
         
     def _onPrintReceived(self, tasknumber, string):
         if not string.strip():
@@ -313,4 +318,19 @@ class Agent(object):
         q.logger.log('Task %s throws: %s'%(tasknumber,traceback.format_exception(type_, value, tb)))
         sender, receiver, resource, messageid = self._tasknumberToClient[tasknumber]
         self.sendMessage(XMPPLogMessage(sender, receiver, resource, messageid, tasknumber, "Exception: %s"%traceback.format_exception(type_, value, tb)))
+        
+    
+    def _logReceived(self, message, tasknumber, level):
+        """
+        Construct log message from a given message and tasknumber and send it to the appropriate client
+        
+        @param message: the message of the log
+        @param tasknumber: the number of the task that produced the log
+        @param level: verbosity level of the message 
+        """
+        
+#        q.logger.log('[AGENT] Received a log message %s from task %s'%(message, tasknumber), 5)
+        
+        (receiver, sender, resource, messageid) = self._tasknumberToClient[tasknumber]
+        self.sendMessage(XMPPLogMessage(receiver, sender, resource, messageid, tasknumber, message))
         

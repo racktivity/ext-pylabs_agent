@@ -211,7 +211,8 @@ class XMPPClient(object):
         receiver = xmppmessage.receiver
         resource = xmppmessage.resource 
         
-        q.logger.log("Sending message [%s] from:%s to:%s'"%(str(xmppmessage), sender, receiver),5)
+        if not isinstance(xmppmessage, XMPPLogMessage):
+            q.logger.log("Sending message [%s] from:%s to:%s'"%(str(xmppmessage), sender, receiver),5)
         msg = xmpp.Message(to = '%s/%s'%(receiver, resource), body = str(xmppmessage), typ = 'chat')
         msg.setID(xmppmessage.messageid)            
         return self._client.send(msg)
