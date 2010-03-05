@@ -8,23 +8,25 @@ class AgentConfig:
         """
         Initialize configuration
         """
-        add = False
-        if 'main' in i.config.agent.list() and not 'agentguid' in i.config.agent.getConfig('main'):
+
+        if 'main' in i.config.agent.list():
             config = i.config.agent.getConfig('main')
+            i.config.agent.remove('main')
         else:
-            add = True
+            config = dict()
+            
+        if not 'agentguid' in config:
             con = i.config.cloudApiConnection.find('main')
             mac = self._getMacaddress(con)
 
-            config = con.machine.registerAgent(mac)['result']
+            config.update(con.machine.registerAgent(mac)['result'])
 
             config['hostname']=config.get('hostname', config['xmppserver'])
             config['xmppserver']=con._server
             q.logger.log('registerAgent UPDATE %r'%config)
 
         self._setConfig(config)
-        if add:
-            i.config.agent.add('main', self._getConfig())
+        i.config.agent.add('main', self._getConfig())
 
     def _setConfig(self, config):
         """
@@ -32,13 +34,16 @@ class AgentConfig:
         @param config: config dict
         """
         self.interval = int(config['cron_interval']) if 'cron_interval' in config else 10
-        self.agentguid = config['agentguid']
-        self.xmppserver = config['xmppserver']
-        self.password = config['password']
+        self.agentguid = config.get('agentguid', None)
+        self.xmppserver = config.get('xmppserver', '127.0.0.1')
+        self.password = config.get('password', None)
         self.hostname = config.get('hostname',self.xmppserver)
-        self.agentcontrollerguid = config['agentcontrollerguid']
-        self.subscribed = config['subscribed'] if 'subscribed' in config else None
+        self.agentcontrollerguid = config.get('agentcontrollerguid', None)
+        self.subscribed = config.get('subscribed', None)
         self.cronEnabled = config['enable_cron'] == 'True' if 'enable_cron' in config else False
+        self.passwd = config.get('passwd', 'qbase_agent')
+        self.login = config.get('login', 'qbase_agent')
+        self.domain = config.get('domain', 'qbase_agent')
 
     def _getMacaddress(self, con):
         """
@@ -64,6 +69,9 @@ class AgentConfig:
         config['agentcontrollerguid'] = self.agentcontrollerguid
         config['subscribed'] = self.subscribed
         config['enable_cron'] = self.cronEnabled
+        config['login'] = self.login
+        config['passwd'] = self.passwd
+        config['domain'] = self.domain
         return config
 
     def updateConfig(self):

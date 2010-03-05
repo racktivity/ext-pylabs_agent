@@ -19,5 +19,11 @@ class AgentConfigItem(ConfigManagementItem):
         self.dialogAskInteger('cron_interval', 'The time between cron executes', 60)
         if not 'enable_cron' in self.params: self.params['enable_cron'] = True
         self.dialogAskYesNo('enable_cron', 'Enable Cron Tasklets Execution')
+        if not 'login' in self.params: self.params['login'] = 'qbase_agent'
+        self.dialogAskString('login', 'Agent login')
+        if not 'passwd' in self.params: self.params['passwd'] = 'qbase_agent'
+        self.dialogAskString('passwd', 'Agent password')
+        if not 'domain' in self.params: self.params['domain'] = 'qbase_agent'
+        self.dialogAskString('domain', 'Agent domain')
 
 AgentConfig = ItemGroupClass(AgentConfigItem)
