@@ -9,7 +9,7 @@ class AgentConfig:
         Initialize configuration
         """
         add = False
-        if 'main' in i.config.agent.list():
+        if 'main' in i.config.agent.list() and not 'agentguid' in i.config.agent.getConfig('main'):
             config = i.config.agent.getConfig('main')
         else:
             add = True
