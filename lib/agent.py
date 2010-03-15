@@ -251,8 +251,16 @@ class Agent(object):
                 if not self.acl[xmppCommandMessage.receiver].isAuthorized(jid, commandPath):
                     q.logger.log('[%s] is not authorized to execute this command:%s'%(jid, commandPath))
                     return
-            
-            tasknumber = self.robot.getNextTaskNumber()
+                
+            # get the tasknumber from the xmppCommandMessage if any, otherwise generate one from the robot            
+            idOption = filter(lambda x: x[:4] == '-id ', xmppCommandMessage.params['options'])
+            if idOption:
+                tasknumber = int(idOption[0][4:])
+                xmppCommandMessage.messageid = tasknumber
+            elif xmppCommandMessage.messageid:
+                tasknumber = xmppCommandMessage.messageid
+            else:
+                tasknumber = self.robot.getNextTaskNumber()            
             
             if xmppCommandMessage.command.lower() == 'killtask':
                 taskToBeKilled = int(xmppCommandMessage.params['params'][0])

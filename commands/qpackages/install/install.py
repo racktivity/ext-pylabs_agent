@@ -17,6 +17,7 @@ def main(q, i, params, tags):
     q.logger.log('QPackage %s found and will being installed...'%res[0])
     res[0].install()
     q.logger.log('QPackage %s installed Successfully'%res[0])
+    params["returncode"] = 0
 
 
 def match(q, i, params, tags):
