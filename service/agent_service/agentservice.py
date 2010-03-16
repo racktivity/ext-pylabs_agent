@@ -34,6 +34,7 @@ class AgentService:
          
         self.xmppclient = XMPPClient('%s@%s'%(configuration['main']['agentname'], configuration['main']['domain']), configuration['main']['password'])
         self.xmppclient.connect(configuration['main']['server'])
+        self.timeout = int(configuration['main']['timeout'])
         
         self.taskmapper = TaskCallbackMapper(self.xmppclient)
         self.finished = {}
@@ -46,6 +47,9 @@ class AgentService:
     
     @q.manage.applicationserver.expose    
     def sendCommand(self, toJID, command, subcommand=None, params=None, resource=''):
+        '''
+        this method used to send commands to agent and return the result synchronously 
+        '''
         idOption = filter(lambda opt: opt.startswith('-id '), params['options'])
         id = None# if no id is specified, no callback is registered
         if idOption:
@@ -60,13 +64,13 @@ class AgentService:
                 
         self.finished[id] = False
         
-        timeout = 20 # for timeout
+        timeout = self.timeout
           
         while not self.finished[id]:
             timeout -=1
             if timeout < 0: 
                 return False # timeout without receiving any xmpp messages            
-            time.sleep(0.5)
+            time.sleep(1)
         
         #if we didn't time out above, that means a message (or more) is received, and the callback is invoked
         return self.messagesReceived[id][-1].returncode == '0'#we're sure that the last message in the list is a XmppResultMessage
