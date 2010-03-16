@@ -53,8 +53,9 @@ class AgentService:
             self.taskmapper.registerTaskCallback(id, self._messagesReceived)
 
         xmppCommandMessage = XMPPCommandMessage(self.xmppclient.userJID, toJID, resource, id, command, subcommand, params)                
-        id = self.xmppclient.sendMessage(xmppCommandMessage)
-        if not idOption:
+        generatedID = self.xmppclient.sendMessage(xmppCommandMessage)
+        if not id:
+            id = generatedID
             self.taskmapper.registerTaskCallback(id, self._messagesReceived)
                 
         self.finished[id] = False
