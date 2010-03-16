@@ -19,7 +19,7 @@
 '''
 PyLabs agent module
 '''
-import signal
+import signal, time
 import traceback
 from agentacl import AgentACL
 from robot import Robot
@@ -29,6 +29,7 @@ from pymonkey.inifile import IniFile
 from pymonkey import q
 
 from xmpplogtarget import XMPPLogTarget
+from taskcallbackmapper import TaskCallbackMapper
 
 class Agent(object):
     '''
@@ -55,28 +56,8 @@ class Agent(object):
         self._isEnabled = dict()
         self._tasknumberToClient= dict()
         
-        if not 'agent' in q.config.list():
-            raise RuntimeError('Agent config file %s does not exist')
-        
-        
-        sections = q.config.getConfig('agent') 
-        for accountSection in filter(lambda x: x.startswith('account_'), sections):
-            sectionInfo = sections[accountSection]        
-            jid = "%s@%s"%(sectionInfo.get('agentname'), sectionInfo.get('domain'))
-            anonymous = sectionInfo.get('anonymous', False)
-            client = XMPPClient(jid, sectionInfo.get('password'), anonymous)
-            self.acl[jid] = AgentACL(sectionInfo.get('agentname'), sectionInfo.get('domain'), map(lambda x: sections[x], filter(lambda x: x.endswith(accountSection[8:]) and x.startswith('acl'), sections)))
-            self._servers[jid] = sectionInfo.get('server')
-            # register the required events
-            client.setCommandReceivedCallback(self._onCommandReceived)
-            client.setLogReceivedCallback(self._onLogReceived)
-            client.setErrorReceivedCallback(self._onErrorReceived)
-            client.setResultReceivedCallback(self._onResultReceived)
-            client.setMessageReceivedCallback(self._onMessageReceived)
-            self.accounts[jid] = client
-            enabled = sectionInfo.get('enabled')
-            self._isEnabled[jid] = True if enabled == '1' or enabled == 'True' else False                
-            
+        self.reloadConfig()
+                    
         self.robot = Robot()
         self.robot.setOnPrintReceivedCallback(self._onPrintReceived)
         self.robot.setOnExceptionReceivedCallback(self._onExceptionReceived)
@@ -92,19 +73,79 @@ class Agent(object):
         
     def _stop(self, signum, frames):
         self.stop()        
-
-    def _registeAccounts(self, agentcontrollerJID):
+    
+    def _registerAccounts(self, accountSections):
+        """
+        Registers all the accounts
+        
+        Handles all the accounts at once to use only a global timeout period instead of timeout for each anonymous account
+        """
+        mappers = dict()
+        finished = dict()
+        messageIdToJid = dict()
+        agentConigFile = q.config.getInifile('agent')
+        accountSectionDicts = map(lambda section: section.values()[0], accountSections)
+        jidToAgentcontroller = dict(map(lambda section: ("%s@%s"%(section.get('agentname'), section.get('domain')), "%s@%s"%(section.get('agentcontrollername'), section.get('domain'))), accountSectionDicts))#create {jid: agentcontrolerjid}
+        jidToSectionName = dict(map(lambda item: ("%s@%s"%(item[item.keys()[0]].get('agentname'), item[item.keys()[0]].get('domain')), item.keys()[0]), accountSections)) #create {jid : sectionName}
+        def _messagesReceived(self, id, xmppMessages):
+            resultMessage = xmppMessages[-1]
+            q.logger.log('result message is received %s'% resultMessage, 5)
+            finished[id] = True
+            if resultMessage.returncode == '0':
+                q.logger.log('account %s registered successfully'%messageIdToJid[id], 5)
+                agentConigFile.setParam(jidToSectionName[messageIdToJid[id]], 'anonymous', 0)
+            else:
+                q.logger.log('Failed to register agent %s'%messageIdToJid[id], 5)
+        messageid = 0    
         for jid, client in self.accounts.items():
-            if client.anonymous:
-                self._registerAccount(jid, client, client.username, client.password, client.domain, agentcontrollerJID)
-
-    def _registerAccount(self, jid, client, agentname, password, domian, agentcontrollerJID):
+            if not client.anonymous:
+                continue
+            
+            client.connect(self._servers[jid])
+            mappers[jid] = TaskCallbackMapper(client)
+            messageid += 1
+            finished[messageid] = False
+            mappers[jid].registerTaskCallback(messageid, _messagesReceived)
+            messageid = client.sendMessage(XMPPCommandMessage(jid, jidToAgentcontroller[jid], '', messageid, 'domaincontroller', subcommand='register', params={'params':[client.username, client.password, client.domain],  'options': []}))
+            messageIdToJid[messageid] = jid
+        timeout = self.timeout
+        while timeout and filter(lambda item: not item, finished.values()):
+            time.sleep(1)
+            timeout -= 1
+        if not timeout:
+            q.logger.log('timeout occurred while registering agents, status: %s'%map(lambda id: {messageIdToJid[id]: finished[id]}, finished))
+        if filter(lambda item: item, finished.values()):
+            self.reloadConfig(registerAnonymous=False)
+        
+    
+    def reloadConfig(self, registerAnonymous=True):
         """
         """
-        xmppclient.connect(self._servers[jid])
+        if not 'agent' in q.config.list():
+            raise RuntimeError('Agent config file %s does not exist')
         
-        command = XMPPCommandMessage(jid, agentcontrollerJID, '', messageid, command, subcommand='', params=None)
         
+        sections = q.config.getConfig('agent')
+        self.timeout = int(sections['main'].get('registeration_timeout', 10))
+        accountSections =  filter(lambda x: x.startswith('account_'), sections)
+        for accountSection in accountSections:
+            sectionInfo = sections[accountSection]        
+            jid = "%s@%s"%(sectionInfo.get('agentname'), sectionInfo.get('domain'))
+            anonymous = bool(int(sectionInfo.get('anonymous', False)))
+            client = XMPPClient(jid, sectionInfo.get('password'), anonymous=anonymous)
+            self.acl[jid] = AgentACL(sectionInfo.get('agentname'), sectionInfo.get('domain'), map(lambda x: sections[x], filter(lambda x: x.endswith(accountSection[8:]) and x.startswith('acl'), sections)))
+            self._servers[jid] = sectionInfo.get('server')
+            # register the required events
+            client.setCommandReceivedCallback(self._onCommandReceived)
+            client.setLogReceivedCallback(self._onLogReceived)
+            client.setErrorReceivedCallback(self._onErrorReceived)
+            client.setResultReceivedCallback(self._onResultReceived)
+            client.setMessageReceivedCallback(self._onMessageReceived)
+            self.accounts[jid] = client
+            enabled = sectionInfo.get('enabled')
+            self._isEnabled[jid] = True if enabled == '1' or enabled == 'True' else False
+        if registerAnonymous:
+            self._registerAccounts(map(lambda x: {x:sections[x]},  accountSections))
 
     def connectAccount(self, jid):
         """

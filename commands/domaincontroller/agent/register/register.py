@@ -14,7 +14,7 @@ def main(q, i, params, tags):
     else:
         q.manage.servers.ejabberd.userAdd(agentname, password, domain)
         params['returncode'] = 0
-        params['returnvalue'] = 'agent %s@%s registered successfully'
+        params['returnvalue'] = 'agent %s@%s registered successfully'%(agentname, domain)
     
 def match(q, i, params, tags):
     return True

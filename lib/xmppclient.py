@@ -57,9 +57,9 @@ class XMPPClient(object):
         @param anonymous: indicates whether to login anonymously on the xmppserver
         @type anonymous: boolean
         '''        
-        jidObj = xmpp.JID(self.jid)
+        jidObj = xmpp.JID(jid)
         self.domain = jidObj.getDomain()
-        self.username = jidObi.getNode()
+        self.username = jidObj.getNode()
         self.jid = jid
         self.password = password        
         self._resultMessage = ''
