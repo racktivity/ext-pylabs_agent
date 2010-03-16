@@ -162,8 +162,7 @@ class Robot(object):
         #incase the memory of the machine is not enough for the number of take, start over
         except:
             self._nextTaskNumber = 1   
-        return tasknumber 
-        
+        return str(tasknumber) 
         
 
     def findCommands(self, tags):

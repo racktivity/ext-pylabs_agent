@@ -255,7 +255,7 @@ class Agent(object):
             # get the tasknumber from the xmppCommandMessage if any, otherwise generate one from the robot            
             idOption = filter(lambda x: x[:4] == '-id ', xmppCommandMessage.params['options'])
             if idOption:
-                tasknumber = int(idOption[0][4:])
+                tasknumber = idOption[0][4:]
                 xmppCommandMessage.messageid = tasknumber
             elif xmppCommandMessage.messageid:
                 tasknumber = xmppCommandMessage.messageid
@@ -263,11 +263,11 @@ class Agent(object):
                 tasknumber = self.robot.getNextTaskNumber()            
             
             if xmppCommandMessage.command.lower() == 'killtask':
-                taskToBeKilled = int(xmppCommandMessage.params['params'][0])
+                taskToBeKilled = xmppCommandMessage.params['params'][0]
                 result = self.robot.killTask(taskToBeKilled)
                 self.sendMessage(XMPPResultMessage(xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid, tasknumber, 0 if result else 1, ''))   
             elif xmppCommandMessage.command.lower() == 'stoptask':
-                taskToBeStooped = int(xmppCommandMessage.params['params'][0])
+                taskToBeStooped = xmppCommandMessage.params['params'][0]
                 result = self.robot.stopTask(taskToBeStooped)                
                 self.sendMessage(XMPPResultMessage(xmppCommandMessage.receiver, xmppCommandMessage.sender, xmppCommandMessage.resource, xmppCommandMessage.messageid, tasknumber, 0 if result else 1, ''))
             else:                

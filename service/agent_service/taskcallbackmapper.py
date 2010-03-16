@@ -18,7 +18,6 @@
 
 from pymonkey import q, i
 
-from agent_service.xmppclient import XMPPCommandMessage, XMPPResultMessage
 import xmpp
 
 class TaskCallbackMapper(object):
@@ -39,7 +38,7 @@ class TaskCallbackMapper(object):
         call back registed in the agent to be called when some message is called 
         '''
         id = xmppMessage.messageid
-        q.logger.log('DEBUG: _onGenericMessageReceived id:%s , on xmppmessage:%s'% (id, xmppMessage), 5)
+        q.logger.log('_onGenericMessageReceived id:%s , on xmppmessage:%s'% (id, xmppMessage), 5)
         
         if not self._messagesReceived.get(id):
             self._messagesReceived[id] = list()
@@ -48,9 +47,10 @@ class TaskCallbackMapper(object):
             
     def _onResultMessageReceived(self, xmppMessage):
         id = xmppMessage.messageid
-        q.logger.log('DEBUG: _onResultMessageReceived id:%s , on xmppmessage:%s'%(id, xmppMessage), 5)
+        q.logger.log('_onResultMessageReceived id:%s , on xmppmessage:%s'%(id, xmppMessage), 5)
         self._messagesReceived[id].append(xmppMessage)
         if not self._callbacks.get(id):
+            q.logger.log('XMPPMessage %s is received for unknown ID %s'%(id, xmppMessage), 5)
             return
         self._callbacks[id](id, self._messagesReceived[id])
         del self._messagesReceived[id]
