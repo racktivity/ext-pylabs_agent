@@ -23,7 +23,7 @@ import signal
 import traceback
 from agentacl import AgentACL
 from robot import Robot
-from xmppclient import XMPPClient, XMPPTaskNumberMessage, XMPPResultMessage, XMPPLogMessage
+from xmppclient import XMPPClient, XMPPTaskNumberMessage, XMPPResultMessage, XMPPLogMessage, XMPPCommandMessage
 
 from pymonkey.inifile import IniFile
 from pymonkey import q
@@ -58,12 +58,13 @@ class Agent(object):
         if not 'agent' in q.config.list():
             raise RuntimeError('Agent config file %s does not exist')
         
-        sections = q.config.getConfig('agent') 
         
+        sections = q.config.getConfig('agent') 
         for accountSection in filter(lambda x: x.startswith('account_'), sections):
             sectionInfo = sections[accountSection]        
             jid = "%s@%s"%(sectionInfo.get('agentname'), sectionInfo.get('domain'))
-            client = XMPPClient(jid, sectionInfo.get('password'))
+            anonymous = sectionInfo.get('anonymous', False)
+            client = XMPPClient(jid, sectionInfo.get('password'), anonymous)
             self.acl[jid] = AgentACL(sectionInfo.get('agentname'), sectionInfo.get('domain'), map(lambda x: sections[x], filter(lambda x: x.endswith(accountSection[8:]) and x.startswith('acl'), sections)))
             self._servers[jid] = sectionInfo.get('server')
             # register the required events
@@ -91,6 +92,19 @@ class Agent(object):
         
     def _stop(self, signum, frames):
         self.stop()        
+
+    def _registeAccounts(self, agentcontrollerJID):
+        for jid, client in self.accounts.items():
+            if client.anonymous:
+                self._registerAccount(jid, client, client.username, client.password, client.domain, agentcontrollerJID)
+
+    def _registerAccount(self, jid, client, agentname, password, domian, agentcontrollerJID):
+        """
+        """
+        xmppclient.connect(self._servers[jid])
+        
+        command = XMPPCommandMessage(jid, agentcontrollerJID, '', messageid, command, subcommand='', params=None)
+        
 
     def connectAccount(self, jid):
         """
