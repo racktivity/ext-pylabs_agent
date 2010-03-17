@@ -87,7 +87,7 @@ class Agent(object):
         accountSectionDicts = map(lambda section: section.values()[0], accountSections)
         jidToAgentcontroller = dict(map(lambda section: ("%s@%s"%(section.get('agentname'), section.get('domain')), "%s@%s"%(section.get('agentcontrollername'), section.get('domain'))), accountSectionDicts))#create {jid: agentcontrolerjid}
         jidToSectionName = dict(map(lambda item: ("%s@%s"%(item[item.keys()[0]].get('agentname'), item[item.keys()[0]].get('domain')), item.keys()[0]), accountSections)) #create {jid : sectionName}
-        def _messagesReceived(self, id, xmppMessages):
+        def _messagesReceived(id, xmppMessages):
             resultMessage = xmppMessages[-1]
             q.logger.log('result message is received %s'% resultMessage, 5)
             finished[id] = True
@@ -96,14 +96,15 @@ class Agent(object):
                 agentConigFile.setParam(jidToSectionName[messageIdToJid[id]], 'anonymous', 0)
             else:
                 q.logger.log('Failed to register agent %s'%messageIdToJid[id], 5)
-        messageid = 0    
+        countID = 0            
         for jid, client in self.accounts.items():
             if not client.anonymous:
                 continue
             
             client.connect(self._servers[jid])
             mappers[jid] = TaskCallbackMapper(client)
-            messageid += 1
+            countID += 1
+            messageid = str(countID)
             finished[messageid] = False
             mappers[jid].registerTaskCallback(messageid, _messagesReceived)
             messageid = client.sendMessage(XMPPCommandMessage(jid, jidToAgentcontroller[jid], '', messageid, 'domaincontroller', subcommand='register', params={'params':[client.username, client.password, client.domain],  'options': []}))
