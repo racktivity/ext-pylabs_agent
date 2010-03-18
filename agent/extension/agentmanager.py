@@ -60,11 +60,12 @@ class AgentManager(object):
             return True
         timeout = self._timeout
         startCommand = '%s start'%self._agentCommand
-        _, _ = q.system.process.execute(startCommand, outputToStdout = False)
-        agentPid = int(open(self._agentPidFile, 'r').read())
+        _, _ = q.system.process.execute(startCommand, outputToStdout = False)        
         while timeout:
-            if q.system.process.isPidAlive(agentPid):
-                return True
+            if q.system.fs.exists(self._agentPidFile):
+                agentPid = int(open(self._agentPidFile, 'r').read())
+                if q.system.process.isPidAlive(agentPid):
+                    return True
             time.sleep(1)
             timeout -= 1
         

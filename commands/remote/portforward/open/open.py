@@ -16,7 +16,8 @@ def _processLoginInfo(loginPasswordServer):
 
 def main(q, i, params, tags):
     q.logger.log("portforward params:%s tags:%s"%(params,tags))
-    timeout = 5
+    initialTimeout = 5
+    timeout = initialTimeout
     args = params['params']
     serverport, localDestination, portOnDestination, loginPasswordServer = args
     q.logger.log("serverport:%s localDestination:%s portOnDestination:%s loginPasswordServer:%s"%(serverport, localDestination, portOnDestination, loginPasswordServer))
@@ -48,7 +49,7 @@ def main(q, i, params, tags):
         time.sleep(1)
         timeout -= 1
     if not pidExists:
-        raise RuntimeError('Failed to start portforward daemon. Reason cannot find pid file in %s seconds'%timeout)
+        raise RuntimeError('Failed to start portforward daemon. Reason cannot find pid file in %s seconds'%initialTimeout)
     pid = int(q.system.fs.fileGetContents(pidFilePath))
     q.system.fs.writeFile(newPidFilePath, str(pid))
     params['returncode'] = 0

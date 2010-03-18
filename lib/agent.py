@@ -170,6 +170,7 @@ class Agent(object):
         
         self.accounts[jid].connect(self._servers[jid])
         self._status = q.enumerators.AppStatusType.RUNNING
+        
     
     def disconnectAccount(self, jid):
         """
