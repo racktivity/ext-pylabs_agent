@@ -48,7 +48,23 @@ class AgentService:
     @q.manage.applicationserver.expose    
     def sendCommand(self, toJID, command, subcommand=None, params=None, resource=''):
         '''
-        this method used to send commands to agent and return the result synchronously 
+        this method used to send commands to agent and return the result synchronously
+        
+        @param toJID: JID of agent to which the command is sent
+        @type string:
+        
+        @param command: command to be sent, e.g portforward
+        @type string:
+        
+        @param subcommand: subcommand, e.g open
+        @type string
+        
+        @param params: dictionary contains two keys 'options' and 'params' , each value is list of strings , e.g params = {'params':['ls'], 'options':['-id 2123']}
+        @type dict
+        
+        @return: true if the command is sent and executed successfully, otherwise   
+        @type boolean: 
+         
         '''
         idOption = filter(lambda opt: opt.startswith('-id '), params['options'])
         id = None# if no id is specified, no callback is registered
@@ -77,6 +93,32 @@ class AgentService:
     
     @q.manage.applicationserver.expose
     def openPortForward(self, toJID, serverport, localDestination, portOnDestination, loginPasswordServer, options):
+        '''
+        open PortForward R/L
+        
+        @param toJID: JID of agent to which the command is sent
+        @type string: 
+        
+        @param serverport
+        @type string:
+        
+        @param localDestination:
+        @type string:
+        
+        @param portOnDestination:
+        @type string:
+        
+        @param loginPasswordServer:
+        @type string:
+        
+        @param options: e.g ['-R', '-id 55'] or ['-L', '-id 55'] 
+        @param list:        
+        
+        @return: true if the command is sent and executed successfully, otherwise   
+        @type boolean:        
+        '''        
         args = [serverport, localDestination, portOnDestination, loginPasswordServer]
+        args = map(lambda x: str(x), args) # to avoid writing any argument in type other than string
+        
         params = {'params':args, 'options':options if options else []}
         return self.sendCommand(toJID, 'portforward', 'open', params)

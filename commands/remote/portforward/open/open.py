@@ -39,7 +39,7 @@ def main(q, i, params, tags):
     python_bin = q.system.fs.joinPaths(q.dirs.binDir, 'python')
     runnerScriptPath = q.system.fs.joinPaths(q.dirs.appDir, 'agent','lib', 'portforwardrunner.py')
     pidFilePath = q.system.fs.joinPaths(q.dirs.pidDir, '%s_portforward.pid'%params['tasknumber'])
-    command = '%s %s start %s %s %s %s %s %s %s %s'%(python_bin, runnerScriptPath, pidFilePath, local, server, login, password, serverport, localDestination, portOnDestination)
+    command = '%s %s start %s %s %s %s %s %s %s %s'%(python_bin, runnerScriptPath, pidFilePath, local, server, login, password, serverport, localDestination, portOnDestination)    
     q.system.process.execute(command)
     pidExists = False
     while timeout:
