@@ -30,7 +30,7 @@ class AgentAccountsConfigItem(ConfigManagementItem):
     """
 
     CONFIGTYPE = "agent_accounts"
-    DESCRIPTION = "agent configuration"
+    DESCRIPTION = "agent account section"
 
     def ask(self):
         self.dialogAskString('agentname', 'agent name', 'test')
@@ -49,7 +49,7 @@ class AgentAclsConfigItem(ConfigManagementItem):
     """
 
     CONFIGTYPE = "agent_acls"
-    DESCRIPTION = "agent configuration"
+    DESCRIPTION = "agent acl section"
 
     def ask(self):
         self.dialogAskString('account_name', 'enter account section name for the new acl')
