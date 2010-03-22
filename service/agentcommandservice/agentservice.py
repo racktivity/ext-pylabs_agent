@@ -122,3 +122,35 @@ class AgentService:
         
         params = {'params':args, 'options':options if options else []}
         return self.sendCommand(toJID, 'portforward', 'open', params)
+    
+    @q.manage.applicationserver.expose
+    def closePortForward(self, toJID, serverport, localDestination, portOnDestination, loginPasswordServer, options):
+        '''
+        close PortForward R/L
+        
+        @param toJID: JID of agent to which the command is sent
+        @type string: 
+        
+        @param serverport
+        @type string:
+        
+        @param localDestination:
+        @type string:
+        
+        @param portOnDestination:
+        @type string:
+        
+        @param loginPasswordServer:
+        @type string:
+        
+        @param options: e.g ['-R', '-id 55'] or ['-L', '-id 55'] 
+        @param list:        
+        
+        @return: true if the command is sent and executed successfully, otherwise   
+        @type boolean:        
+        '''        
+        args = [serverport, localDestination, portOnDestination, loginPasswordServer]
+        args = map(lambda x: str(x), args) # to avoid writing any argument in type other than string
+        
+        params = {'params':args, 'options':options if options else []}
+        return self.sendCommand(toJID, 'portforward', 'close', params)
