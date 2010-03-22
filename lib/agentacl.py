@@ -188,11 +188,12 @@ class AgentACL(object):
             self.aclRules[jid] = dict()
             
         for key, value in aclInfo.items():
+            allowAccess = True if value in ('1', 'True') else False
             if key in self.aclRules[jid]:
                 #if the rule already exist take the most pessimistic one, in other words &&
-                self.aclRules[jid][key] = self.aclRules[jid][key] and bool(int(value))
+                self.aclRules[jid][key] = self.aclRules[jid][key] and allowAccess
             else:
-                self.aclRules[jid][key] = bool(int(value)) 
+                self.aclRules[jid][key] = allowAccess 
         
         
     

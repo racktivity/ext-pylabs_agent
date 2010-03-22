@@ -83,7 +83,7 @@ class Agent(object):
         mappers = dict()
         finished = dict()
         messageIdToJid = dict()
-        agentConigFile = q.config.getInifile('agent')
+        agentConigFile = q.config.getInifile('agent_accounts')
         accountSectionDicts = map(lambda section: section.values()[0], accountSections)
         jidToAgentcontroller = dict(map(lambda section: ("%s@%s"%(section.get('agentname'), section.get('domain')), "%s@%s"%(section.get('agentcontrollername'), section.get('domain'))), accountSectionDicts))#create {jid: agentcontrolerjid}
         jidToSectionName = dict(map(lambda item: ("%s@%s"%(item[item.keys()[0]].get('agentname'), item[item.keys()[0]].get('domain')), item.keys()[0]), accountSections)) #create {jid : sectionName}
@@ -122,19 +122,23 @@ class Agent(object):
     def reloadConfig(self, registerAnonymous=True):
         """
         """
-        if not 'agent' in q.config.list():
+        if not 'agent' in q.config.list() or not 'agent_accounts' in q.config.list() or not 'agent_acls' in q.config.list():
             raise RuntimeError('Agent config file %s does not exist')
         
         
         sections = q.config.getConfig('agent')
         self.timeout = int(sections['main'].get('registeration_timeout', 10))
-        accountSections =  filter(lambda x: x.startswith('account_'), sections)
+        
+        
+        accountSections =  q.config.getConfig('agent_accounts')#filter(lambda x: x.startswith('account_'), sections)
+        aclSections = q.config.getConfig('agent_acls')
         for accountSection in accountSections:
-            sectionInfo = sections[accountSection]        
+            sectionInfo = accountSections[accountSection]        
             jid = "%s@%s"%(sectionInfo.get('agentname'), sectionInfo.get('domain'))
-            anonymous = bool(int(sectionInfo.get('anonymous', False)))
+            isAnonymous = sectionInfo.get('anonymous', False)
+            anonymous = True if isAnonymous == '1' or isAnonymous == 'True' else False
             client = XMPPClient(jid, sectionInfo.get('password'), anonymous=anonymous)
-            self.acl[jid] = AgentACL(sectionInfo.get('agentname'), sectionInfo.get('domain'), map(lambda x: sections[x], filter(lambda x: x.endswith(accountSection[8:]) and x.startswith('acl'), sections)))
+            self.acl[jid] = AgentACL(sectionInfo.get('agentname'), sectionInfo.get('domain'), map(lambda x: aclSections[x], filter(lambda x: x.endswith(accountSection[len('account_'):]), aclSections)))
             self._servers[jid] = sectionInfo.get('server')
             # register the required events
             client.setCommandReceivedCallback(self._onCommandReceived)
@@ -146,7 +150,7 @@ class Agent(object):
             enabled = sectionInfo.get('enabled')
             self._isEnabled[jid] = True if enabled == '1' or enabled == 'True' else False
         if registerAnonymous:
-            self._registerAccounts(map(lambda x: {x:sections[x]},  accountSections))
+            self._registerAccounts(map(lambda x: {x:accountSections[x]},  accountSections))
 
     def connectAccount(self, jid):
         """
