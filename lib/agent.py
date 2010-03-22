@@ -138,7 +138,7 @@ class Agent(object):
             isAnonymous = sectionInfo.get('anonymous', False)
             anonymous = True if isAnonymous == '1' or isAnonymous == 'True' else False
             client = XMPPClient(jid, sectionInfo.get('password'), anonymous=anonymous)
-            self.acl[jid] = AgentACL(sectionInfo.get('agentname'), sectionInfo.get('domain'), map(lambda x: aclSections[x], filter(lambda x: x.endswith(accountSection[len('account_'):]), aclSections)))
+            self.acl[jid] = AgentACL(sectionInfo.get('agentname'), sectionInfo.get('domain'), map(lambda x: aclSections[x], filter(lambda x: aclSections[x].get('account_name') == accountSection, aclSections)))
             self._servers[jid] = sectionInfo.get('server')
             # register the required events
             client.setCommandReceivedCallback(self._onCommandReceived)

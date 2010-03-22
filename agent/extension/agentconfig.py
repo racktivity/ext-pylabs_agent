@@ -52,6 +52,7 @@ class AgentAclsConfigItem(ConfigManagementItem):
     DESCRIPTION = "agent configuration"
 
     def ask(self):
+        self.dialogAskString('account_name', 'enter account section name for the new acl')
         self.dialogAskString('agentfilters', 'enter filter for the allowed agent(s)', '*@dmachine.sso.daas.com')
         commandGroups = map(lambda x:  "%s/*"%q.system.fs.getBaseName(x), q.system.fs.listDirsInDir(q.system.fs.joinPaths(q.dirs.appDir, 'agent', 'cmds')))
         for commandGroup in commandGroups:
