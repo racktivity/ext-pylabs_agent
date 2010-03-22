@@ -22,6 +22,7 @@ PyLabs agent manager module
 
 from pymonkey import i, q
 import time
+import signal
 
 class AgentManager(object):
     '''
@@ -37,7 +38,10 @@ class AgentManager(object):
         self._agentRunnerPath = q.system.fs.joinPaths(q.dirs.appDir, 'agent', 'lib', 'agentrunner.py')
         self._agentCommand = '%s %s'%(self._pythonBinPath, self._agentRunnerPath)
         self._agentPidFile = q.system.fs.joinPaths(q.dirs.pidDir, 'agent.pid')
-        self._timeout = 10
+        self._timeout = 5
+        self._agentVarDir = q.system.fs.joinPaths(q.dirs.varDir, 'agent')
+        self._agentStdout = q.system.fs.joinPaths(self._agentVarDir, 'stdout')
+        self._agentStderr = q.system.fs.joinPaths(self._agentVarDir, 'stderr')
     
     def start(self):
         """
@@ -50,7 +54,7 @@ class AgentManager(object):
         """
 
         """
-        Implementation tip:
+        Implementation tip: ( didnt use it since it cause some problem with paramiko which used in portforwarding)
         -------------------
         * Use following library to run agent as daemon 
         *** -> http://pypi.python.org/pypi/python-daemon/
@@ -59,19 +63,22 @@ class AgentManager(object):
             q.console.echo('Agent is already running...')
             return True
         timeout = self._timeout
-        startCommand = '%s start'%self._agentCommand
-        _, _ = q.system.process.execute(startCommand, outputToStdout = False)        
-        while timeout:
-            if q.system.fs.exists(self._agentPidFile):
-                agentPid = int(open(self._agentPidFile, 'r').read())
-                if q.system.process.isPidAlive(agentPid):
-                    return True
+#        startCommand = '%s start'%self._agentCommand
+#        _, _ = q.system.process.execute(startCommand, outputToStdout = False)        
+        pid = q.system.process.runDaemon(self._agentCommand, stdout = self._agentStdout, stderr = self._agentStderr)
+        while timeout and not q.system.process.isPidAlive(pid):
+#            if q.system.fs.exists(self._agentPidFile):
+#                agentPid = int(open(self._agentPidFile, 'r').read())
+#                if q.system.process.isPidAlive(agentPid):
+#                    return True
             time.sleep(1)
             timeout -= 1
         
         if not timeout:
-            q.console.echo('Failed to start the server in %s seconds'%self._timeout)
+            q.console.echo('Failed to start the agent in %s seconds'%self._timeout)
             return False
+        q.system.fs.writeFile(self._agentPidFile, str(pid))
+        return True
         
     def stop(self):
         """
@@ -88,8 +95,9 @@ class AgentManager(object):
         
         agentPid = int(open(self._agentPidFile, 'r').read())
         timeout = self._timeout
-        stopCommand = '%s stop'%self._agentCommand
-        _, _ = q.system.process.execute(stopCommand, outputToStdout = False)
+#        stopCommand = '%s stop'%self._agentCommand
+#        _, _ = q.system.process.execute(stopCommand, outputToStdout = False)
+        q.system.process.kill(agentPid, signal.SIGTERM)
         while timeout:
             if not q.system.process.isPidAlive(agentPid):
                 return True
@@ -97,8 +105,10 @@ class AgentManager(object):
             timeout -= 1
         
         if not timeout:
-            q.console.echo('Failed to stop the server in %s seconds'%self._timeout)
-            return False
+            q.console.echo('Failed to stop the agent in %s seconds, trying to kill the process abruptly '%self._timeout)
+            q.system.process.kill(agentPid, signal.SIGKILL)
+            time.sleep(1)
+            return not q.system.process.isPidAlive(agentPid)
 
     def getStatus(self):
         """
@@ -113,4 +123,12 @@ class AgentManager(object):
             return q.enumerators.AppStatusType.HALTED
         agentPid = int(open(self._agentPidFile, 'r').read())
         return q.enumerators.AppStatusType.RUNNING if q.system.process.isPidAlive(agentPid) else q.enumerators.AppStatusType.HALTED
+    
+    
+    def restart(self):
+        """
+        Restart the agent process
+        """
+        self.stop()
+        self.start()
         

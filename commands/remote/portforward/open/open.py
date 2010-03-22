@@ -34,23 +34,25 @@ def main(q, i, params, tags):
 #        connection.portforward.forwardLocalPort(int(serverport), localDestination, int(portOnDestination))
     newPidFileName = '%s_%s.pid'%('local' if local else 'remote', serverport)
     newPidFilePath = q.system.fs.joinPaths(q.dirs.pidDir, newPidFileName)
-    if q.system.fs.isFile(newPidFilePath):
+    if q.system.fs.isFile(newPidFilePath) and q.system.process.isPidAlive(int(q.system.fs.fileGetContents(newPidFilePath))):
         raise RuntimeError('Port %s already in use'%serverport)
     python_bin = q.system.fs.joinPaths(q.dirs.binDir, 'python')
     runnerScriptPath = q.system.fs.joinPaths(q.dirs.appDir, 'agent','lib', 'portforwardrunner.py')
-    pidFilePath = q.system.fs.joinPaths(q.dirs.pidDir, '%s_portforward.pid'%params['tasknumber'])
-    command = '%s %s start %s %s %s %s %s %s %s %s'%(python_bin, runnerScriptPath, pidFilePath, local, server, login, password, serverport, localDestination, portOnDestination)    
-    q.system.process.execute(command)
-    pidExists = False
-    while timeout:
-        if q.system.fs.isFile(pidFilePath):
-            pidExists = True
-            break
+#    pidFilePath = q.system.fs.joinPaths(q.dirs.pidDir, '%s_portforward.pid'%params['tasknumber'])
+    command = '%s %s start %s %s %s %s %s %s %s'%(python_bin, runnerScriptPath, local, server, login, password, serverport, localDestination, portOnDestination)    
+    pid = q.system.process.runDaemon(command)
+#    pidExists = False
+    while timeout and not q.system.process.isPidAlive(pid):
+#        if q.system.fs.isFile(pidFilePath):
+#            pidExists = True
+#            break
         time.sleep(1)
         timeout -= 1
-    if not pidExists:
-        raise RuntimeError('Failed to start portforward daemon. Reason cannot find pid file in %s seconds'%initialTimeout)
-    pid = int(q.system.fs.fileGetContents(pidFilePath))
+#    if not pidExists:
+#        raise RuntimeError('Failed to start portforward daemon. Reason cannot find pid file in %s seconds'%initialTimeout)
+    if not timeout:
+        raise RuntimeError('Failed to start portforward daemon in %d seconds'%initialTimeout)
+#    pid = int(q.system.fs.fileGetContents(pidFilePath))
     q.system.fs.writeFile(newPidFilePath, str(pid))
     params['returncode'] = 0
     params['returnvalue'] = 'Successfully open port'
