@@ -50,6 +50,9 @@ class Scheduler(object):
         self.runningGroups = list()
         self._startTime = time.time()
         self._schedulerPath = q.system.fs.joinPaths(q.dirs.appDir, 'scheduler')
+        if not q.system.fs.exists(self._schedulerPath):
+            q.logger.log('Scheduler base dir %s doesnt exist creating empty one..'%self._schedulerPath)
+            q.system.fs.createDir(self._schedulerPath)
         self.groups = dict()
         q.system.fswalker.walk(self._schedulerPath, callback=self._createGroup, arg = self.groups, includeFolders=True, recursive=False)
         
