@@ -52,7 +52,9 @@ class XMPPClient:
             raise RuntimeError('The XmppClient has not yet been started.')
 
         q.logger.log("[XMPPCLIENT] Stopping the xmpp client to " + self.username + "@" + self.server, 5)
+        self.connector.stopAfterDNS = 1
         self.connector.disconnect()
+
 
     def sendMessage(self, to, type, id, message=' '):
         ''' Send a message

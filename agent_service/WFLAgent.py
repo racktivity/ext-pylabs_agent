@@ -14,7 +14,7 @@ class AgentConfig:
             i.config.agent.remove('main')
         else:
             config = dict()
-            
+
         if not 'agentguid' in config:
             con = i.config.cloudApiConnection.find('main')
             mac = self._getMacaddress(con)
@@ -127,3 +127,6 @@ class WFLAgent:
         Retrieve the guid of the agent
         """
         return self.__agent.agentguid
+
+    def __del__(self):
+        self.__agent.disconnect()
