@@ -181,7 +181,7 @@ class Scheduler(object):
         return dict(zip(self.groups.keys(), map(lambda group: q.enumerators.AppStatusType.RUNNING if group in self.runningGroups and self.groups[group].isAlive() else q.enumerators.AppStatusType.HALTED, self.groups.keys())))
         
         
-    def getUptime(self):
+    def getUpTime(self):
         """
         Gets the uptime of the scheduler
         
