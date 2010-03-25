@@ -49,7 +49,7 @@ def setupHandler(handler, api):
     handler.register_function(api.getParams, 'scheduler.getParams')
     
 port = int(sys.argv[-1])
-handler = SimpleXMLRPCServer.SimpleXMLRPCServer(('0.0.0.0', port))
+handler = SimpleXMLRPCServer.SimpleXMLRPCServer(('localhost', port))
 
 scheduler = Scheduler()
 api = SchedulerAPI(scheduler)
