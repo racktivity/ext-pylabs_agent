@@ -91,9 +91,11 @@ class ScriptExecutor:
                                 errorOutput = "WRAPPER CAUGHT EXCEPTION IN SCRIPT: \n" + output_object['errormessage']
                             else:
                                 params = output_object['params']
+                                if proc in self._outputBuffers: self._outputBuffers.pop(proc)
                                 self.scriptDoneCallback and self.scriptDoneCallback(agentcontrollerguid, jobguid, params)
 
                 if errorOutput <> None:
+                    if proc in self._outputBuffers: self._outputBuffers.pop(proc)
                     self.scriptDiedCallback and self.scriptDiedCallback(agentcontrollerguid, jobguid, proc_error_code, errorOutput)
 
                 self._processManager.processStopped(proc)
