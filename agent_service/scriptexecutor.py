@@ -3,17 +3,21 @@ from pymonkey import q
 import sys, yaml, os
 from subprocess import Popen, PIPE
 from twisted.internet import reactor
+import select
 
 PYTHON_BIN =  sys.executable
 SCRIPT_WRAPPER_PY =  q.system.fs.joinPaths(q.dirs.appDir ,'applicationserver' , 'services' , 'agent_service' , 'scriptwrapper.py')
 
 class ScriptExecutor:
+    
+    
 
     def __init__(self):
         self.scriptDoneCallback = None
         self.scriptDiedCallback = None
         self._processManager = ProcessManager()
         self._checkProgress()
+        self._outputBuffers = {}
 
     def setScriptDoneCallback(self, callback):
         self.scriptDoneCallback = callback
@@ -35,13 +39,17 @@ class ScriptExecutor:
     def stop(self, fromm, jobguid):
         if self._processManager.hasJob(fromm, jobguid):
             proc = self._processManager.getProcess(fromm, jobguid)
+            if proc in self._outputBuffers: self._outputBuffers.pop(proc)
             q.system.process.kill(proc.pid, signal.SIGSTOP)
         else:
             q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + jobguid + "' does not exist: cannot stop the job", 3)
+            
+        
 
     def kill(self, fromm, jobguid):
         if self._processManager.hasJob(fromm, jobguid):
             proc = self._processManager.getProcess(fromm, jobguid)
+            if proc in self._outputBuffers: self._outputBuffers.pop(proc)
             q.system.process.kill(proc.pid)
         else:
             q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + jobguid + "' does not exist: cannot kill the job", 3)
@@ -49,12 +57,19 @@ class ScriptExecutor:
     def getJob(self, pid):
         return self._processManager.getJob(pid)
 
+    
     def _checkProgress(self):
         for proc in self._processManager.listRunningProcesses():
             proc_error_code = proc.poll()
+            
+            output = self._outputBuffers.get(proc, '')
+        
+            r, w, x = select.select([proc.stdout], [], [proc.stderr], 0)
+            
             if proc_error_code <> None:
                 (agentcontrollerguid, jobguid) = self._processManager.getJob(proc.pid)
-                output = proc.stdout.read()
+                
+                output = output + proc.stdout.read()
 
                 errorOutput = None
 
@@ -84,6 +99,11 @@ class ScriptExecutor:
                 self._processManager.processStopped(proc)
                 reactor.callLater(2, self._processManager.removeProcess, proc) #Keep it alive for 2 seconds in case logging comes late.
 
+            elif r: 
+                # If data available on stdout, read and clear buffer (otherwise script hangs if too much output (+1M)
+                output = output + proc.stdout.read()
+                self._outputBuffers[proc] = output
+            
         reactor.callLater(0.1, self._checkProgress)
 
 class NoSuchJobException(Exception):
