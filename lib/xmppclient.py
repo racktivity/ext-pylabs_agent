@@ -22,6 +22,7 @@ from pymonkey import q, i
 import xmpp, select
 from threading import Thread
 import sys, traceback
+import time, random
 
 BEGIN_COMMAND = '!'
 END_COMMAND = '!'
@@ -68,6 +69,7 @@ class XMPPClient(object):
         self.port = port
         self._client = xmpp.Client(self.domain, port = self.port, debug = [])
         self.anonymous = anonymous
+        self.autoreconnect = True
      
     def connect(self, server):
         """
@@ -115,12 +117,37 @@ class XMPPClient(object):
         self._client.sendInitPresence()
         self._client.RegisterHandler('message', self._messageRecieved)
         self._client.RegisterHandler('presence', self._presenceReceived)
+        
+        # Make sure we get notified if we get disconnected
+        self._client.RegisterDisconnectHandler(self._handleDisconnect)
+        
         q.logger.log("Connected to server [%s], trying with usersname [%s]" % (self.server, self.jid), 5)
         
         self._doConnect()
         
         return True
-
+    
+    def _handleDisconnect(self):
+        """
+        Tries to reconnect if the connection is lost.
+        """
+        
+        q.logger.log('Connection lost')
+        
+        if self.autoreconnect:
+            q.logger.log('Trying to reconnect...')
+             
+            # Remove current executed handler
+            self._client.UnregisterDisconnectHandler(self._handleDisconnect)
+            # Reinitialize client
+            self._client = xmpp.Client(self.domain, port = self.port, debug = [])
+            # Reconnect
+            self._connect()
+            
+            # Should probably sleep here
+            time.sleep(random.randint(5, 10))
+                
+                
     def _doConnect(self):
         
         def _listen(client):
@@ -175,6 +202,10 @@ class XMPPClient(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
+        
+        # Unregister autoconnect
+        self._client.UnregisterDisconnectHandler(self._handleDisconnect)
+        
         if self.status == 'NOT_CONNECTED':
             q.logger.log('Client is already not connected')
             return True
