@@ -123,6 +123,9 @@ class XMPPClient(object):
         
         q.logger.log("Connected to server [%s], trying with usersname [%s]" % (self.server, self.jid), 5)
         
+        # enable listener thread
+        self._client._listen = True
+        
         self._doConnect()
         
         return True
@@ -139,6 +142,10 @@ class XMPPClient(object):
              
             # Remove current executed handler
             self._client.UnregisterDisconnectHandler(self._handleDisconnect)
+            
+            # disable listener thread
+            self._client._listen = False
+                                
             # Reinitialize client
             self._client = xmpp.Client(self.domain, port = self.port, debug = [])
             # Reconnect
@@ -151,9 +158,13 @@ class XMPPClient(object):
     def _doConnect(self):
         
         def _listen(client):
+            q.logger.log('Starting listening thread')
+                   
             socketlist = {client.Connection._sock:'xmpp'}
-            import time
-            while True:
+            
+            last_keepalive = time.time()
+            
+            while client._listen:
                 (i , _, _) = select.select(socketlist.keys(),[],[],1)
                 try:
                     for each in i:
@@ -161,11 +172,29 @@ class XMPPClient(object):
                             client.Process(1)                    
                         else:
                             q.logger.log("Unknown socket type: %s" % repr(socketlist[each]))
+                            
+                    # Send keep-alive to prevent the connection get killed by FW
+                    now = time.time()
+                    if now - last_keepalive >= 60:
+                        q.logger.log('Sending keepalive msg')
+                        # send keep alive
+                        # send msg to ourselves
+                        receiver = '%s@%s' % (client._User, client.Server) 
+                        resource = client._Resource
+                        
+                        
+                        msg = xmpp.Message(to = '%s/%s'%(receiver, resource), body = 'keepalive', typ = 'chat')
+                        client.send(msg)
+                        last_keepalive = now
+                          
                 except:
                     q.logger.log('Exception occurred while listening %s'%traceback.format_exception(*sys.exc_info()), 4)
+                    
+            q.logger.log('Stopping listening thread')
         
         t = Thread(target=_listen, args=(self._client,))
         t.start()
+        
         
     def _presenceReceived(self, conn, message):
         type_ = message.getType()
