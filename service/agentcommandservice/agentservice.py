@@ -22,8 +22,10 @@ from agent_service.xmppclient import XMPPClient, XMPPResultMessage, XMPPCommandM
 from agent_service.taskcallbackmapper import TaskCallbackMapper
 
 import time
+import re
 
 class AgentService:
+
     def __init__(self):        
         
         #load configuration from the config file
@@ -154,3 +156,49 @@ class AgentService:
         
         params = {'params':args, 'options':options if options else []}
         return self.sendCommand(toJID, 'portforward', 'close', params)
+    
+    @q.manage.applicationserver.expose
+    def getAgentsRegisteredForDomain(self, domain):
+        '''
+        returns a list of agents registered for this domain
+        
+        @param domain:    Zenith registration domain
+        @type domain:     string
+        '''
+        
+        d = self._encodeDomain(domain) 
+        r = r'agent[0-9]+_%s' % d 
+        
+        agents = q.manage.servers.ejabberd.getRegisteredUsers('agent.sso.daas.com')
+        
+        return [agent for agent in agents if re.match(r, agent)]
+        
+        
+    @q.manage.applicationserver.expose
+    def getAgentsOnlineForDomain(self, domain):
+        '''
+        returns a list of online agents for this domain
+        
+        @param domain:    Zenith registration domain
+        @type domain:     string
+        '''
+        d = self._encodeDomain(domain) 
+        r = r'agent[0-9]+_%s@agent.sso.daas.com' % d 
+        
+        agents = q.manage.servers.ejabberd.usersConnectedList()
+        
+        return [agent.split('/')[0] for agent in agents if re.match(r, agent)]
+        
+        
+    def _encodeDomain(self, domain):
+        '''
+        returns encoded domain representation as it is used for registering agents
+        
+        @param domain:    Zenith registration domain
+        @type domain:     string
+        '''
+        
+        d = domain.replace('.', '_')
+        
+        return d
+        
