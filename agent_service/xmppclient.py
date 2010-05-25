@@ -1,3 +1,6 @@
+import base64
+import zlib
+
 from pymonkey import q
 
 from twisted.words.protocols.jabber import xmlstream, client, jid
@@ -74,7 +77,7 @@ class XMPPClient:
 
         elemToSend = domish.Element(('jabber:client','message'), attribs={'to':to+"@"+self.hostname, 'type':type, 'id':id})
         body = domish.Element((None, 'body'))
-        body.addContent(message)
+        body.addContent(base64.encodestring(zlib.compress(message)))
         elemToSend.addContent(body)
         self.xmlstream.send(elemToSend)
 
@@ -212,7 +215,7 @@ class XMPPClient:
         fromm = elem.getAttribute('from').split("@")[0]
         type = elem.getAttribute('type')
         id = elem.getAttribute('id')
-        message = str(elem.children[0].children[0])
+        message = zlib.decompress(base64.decodestring(str(elem.children[0].children[0])))
 
         q.logger.log("[XMPPCLIENT] Message '" + str(id) + "' of type '" + str(type) +"'" + "' received from '" + fromm + "'", 5)
 
