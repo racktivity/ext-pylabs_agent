@@ -70,6 +70,9 @@ from agent import Agent
 
 import time
 
+q.application.appname = 'agent'
+q.application.start()
+
 SLEEP_INTERVAL = 5
 
 agentVarDir = q.system.fs.joinPaths(q.dirs.varDir, 'agent')
