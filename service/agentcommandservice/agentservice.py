@@ -88,21 +88,29 @@ class AgentService:
         self.finished[id] = False
         
         timeout = self.timeout
-          
-        while not self.finished[id]:
+        timed_out = False  
+        while not self.finished[id] and not timed_out:
             timeout -= 1
-            if timeout < 0: 
-                return False # timeout without receiving any xmpp messages            
+            if timeout < 0:
+                timed_out = True 
             time.sleep(1)
         
         #if we didn't time out above, that means a message (or more) is received, and the callback is invoked
         if not returnReturnValue:
+            if timed_out:
+                return False
             return self.messagesReceived[id][-1].returncode == '0'#we're sure that the last message in the list is a XmppResultMessage
         else:
-            return  {
-                        'returncode': self.messagesReceived[id][-1].returncode,
-                        'returnvalue': self.messagesReceived[id][-1].returnvalue,
-                    }
+            if timed_out:
+                return  {
+                            'returncode': 1,
+                            'returnvalue': 'Operation timed out',
+                        }
+            else:
+                return  {
+                            'returncode': self.messagesReceived[id][-1].returncode,
+                            'returnvalue': self.messagesReceived[id][-1].returnvalue,
+                        }
     
     @q.manage.applicationserver.expose
     def openPortForward(self, toJID, serverport, localDestination, portOnDestination, loginPasswordServer, options):
