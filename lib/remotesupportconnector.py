@@ -109,7 +109,11 @@ services = {
 
 proxies = dict.fromkeys(services.keys())  
 
-client = q.remote.system.connect(server, login, password)
+# G
+global client
+global webservice
+
+client = q.remote.system.connect(server, login, password, port=int(serverport))
 
 # Get access to the NOC webservices
 # This will make the NOC weservices availble on the local machine
