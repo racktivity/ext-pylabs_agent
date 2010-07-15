@@ -43,7 +43,7 @@ class SchedulerManager(object):
         
         self._schdulerPidFile = q.system.fs.joinPaths(q.dirs.pidDir, 'scheduler_%(portnumber)s.pid')
         self._pythonBinPath = q.system.fs.joinPaths(q.dirs.binDir, 'python')
-        self._schedulerServiceRunnerPath = q.system.fs.joinPaths(q.dirs.appDir, 'agent', 'lib', 'schedulerservicerunner.py')
+        self._schedulerServiceRunnerPath = q.system.fs.joinPaths(q.dirs.appDir, 'scheduler', 'lib', 'schedulerservicerunner.py')
         self._schedulerServiceCommand = '%s %s'%(self._pythonBinPath, self._schedulerServiceRunnerPath)
         self._schedulerStdOut = q.system.fs.joinPaths(q.dirs.varDir, 'scheduler.out')
         self._schedulerStdErr = q.system.fs.joinPaths(q.dirs.varDir, 'scheduler.err')

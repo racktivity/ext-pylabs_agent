@@ -29,7 +29,6 @@ PyLabs agent scheduler module
 from killablethread import KillableThread
 from pymonkey import q, i
 from pymonkey.inifile import IniFile
-import itertools
 import time
 import yaml
 
@@ -68,6 +67,8 @@ class Scheduler(object):
         if not q.system.fs.isDir(path):
             q.logger.log('File %s found under %s, skipping the file'%(path,self._schedulerPath), 5)
             return 
+        elif q.system.fs.getBaseName(path) == 'lib':
+            return
         q.logger.log('Creating Scheduler group for path %s'%path, 5)
         groupName = q.system.fs.getBaseName(path)
         arg[groupName] = SchedulerGroup(groupName)
@@ -181,7 +182,7 @@ class Scheduler(object):
             raise ValueError('Group %s does not exit'%groupname)
         if groupname and groupname in self.groups:
             return {groupname: q.enumerators.AppStatusType.RUNNING if groupname in self.runningGroups and self.groups[groupname].isAlive() else q.enumerators.AppStatusType.HALTED}
-        return dict(zip(self.groups.keys(), map(lambda group: q.enumerators.AppStatusType.RUNNING if group in self.runningGroups and self.groups[group].isAlive() else q.enumerators.AppStatusType.HALTED, self.groups.keys())))
+        return dict(zip(self.groups.keys(), map(lambda group: str(q.enumerators.AppStatusType.RUNNING) if group in self.runningGroups and self.groups[group].isAlive() else str(q.enumerators.AppStatusType.HALTED), self.groups.keys())))
         
         
     def getUpTime(self):
@@ -240,8 +241,8 @@ class SchedulerGroup(KillableThread):
         *** This will allow tasklets to stop the execution of subsequent tasklets
         """
         self.taskletengine = q.getTaskletEngine(path = q.system.fs.joinPaths(q.dirs.appDir, 'scheduler', groupname))
-        self.params = self._getInitialParams()
-        self.params['STOP'] = self.taskletengine.STOP
+        self.params = {'STOP': self.taskletengine.STOP}
+        self._updateParams()
         
         
     def run(self):
@@ -253,6 +254,7 @@ class SchedulerGroup(KillableThread):
         """
         
         while True and not self.stopped():
+            self._updateParams()
             self.taskletengine.execute(tags = (self.groupname, ), params = self.params)
             time.sleep(self.interval)
 
@@ -264,7 +266,7 @@ class SchedulerGroup(KillableThread):
         """              
         params = dict()
         #if both files exist, the Yaml file supersedes the ini
-        schedulerGroupPath = q.system.fs.joinPaths(q.dirs.appDir, 'schedulre', self.groupname)
+        schedulerGroupPath = q.system.fs.joinPaths(q.dirs.cfgDir, 'scheduler', self.groupname)
         paramsYaml =  q.system.fs.joinPaths(schedulerGroupPath, 'params.yaml')
         paramsIni =  q.system.fs.joinPaths(schedulerGroupPath, 'params.ini')
         if q.system.fs.exists(paramsYaml):            
@@ -275,6 +277,13 @@ class SchedulerGroup(KillableThread):
             params = inifile.getFileAsDict()['main']
             for key, val in params.iteritems():
                 # why using eval, is that only to get ride of the headache of parsing the parameters with their correct types ??
+                print key, val
                 params[key] = eval('(%s)'%val)
 
         return params
+    
+    
+    def _updateParams(self):
+        self.params.update(self._getInitialParams())
+        if self.params.get('interval', False):
+            self.interval = self.params['interval']
