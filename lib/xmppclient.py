@@ -1,21 +1,21 @@
 '''
-INCUBAID BSD version 2.0 
+INCUBAID BSD version 2.0
 Copyright (c) 2010 Incubaid BVBA
 
-All rights reserved. 
- 
-Redistribution and use in source and binary forms, with or 
-without modification, are permitted provided that the following 
-conditions are met: 
- 
-* Redistributions of source code must retain the above copyright 
-notice, this list of conditions and the following disclaimer. 
+All rights reserved.
 
-* Redistributions in binary form must reproduce the above copyright 
-notice, this list of conditions and the following disclaimer in    the documentation and/or other materials provided with the   distribution. 
-* Neither the name Incubaid nor the names of other contributors may be used to endorse or promote products derived from this software without specific prior written permission. 
- 
-THIS SOFTWARE IS PROVIDED BY INCUBAID "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INCUBAID BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+Redistribution and use in source and binary forms, with or
+without modification, are permitted provided that the following
+conditions are met:
+
+* Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in    the documentation and/or other materials provided with the   distribution.
+* Neither the name Incubaid nor the names of other contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY INCUBAID "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INCUBAID BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''
 
 from pymonkey import q, i
@@ -54,15 +54,15 @@ class XMPPClient(object):
 
         @param resource:             Resource name
         @type resource:              string
-        
+
         @param anonymous: indicates whether to login anonymously on the xmppserver
         @type anonymous: boolean
-        '''        
+        '''
         jidObj = xmpp.JID(jid)
         self.domain = jidObj.getDomain()
         self.username = jidObj.getNode()
         self.jid = jid
-        self.password = password        
+        self.password = password
         self._resultMessage = ''
         self.status = 'NOT_CONNECTED'
         self.callbacks = {TYPE_COMMAND:None, TYPE_LOG:None, TYPE_RESULT:None, TYPE_ERROR:None, TYPE_TASKNUMBER:None, TYPE_UNKNOWN:None}
@@ -70,36 +70,36 @@ class XMPPClient(object):
         self._client = xmpp.Client(self.domain, port = self.port, debug = [])
         self.anonymous = anonymous
         self.autoreconnect = True
-     
+
     def connect(self, server):
         """
         Connects the client to xmpp server with the credentials specified
 
-        @param server:               If specified, connect to a specific server hosting the domain 
+        @param server:               If specified, connect to a specific server hosting the domain
         @type server:                string
 
         @return:                     True in case of successful connection
         @rtype:                      boolean
 
         @raise e:                    In case an error occurred, exception is raised
-        """        
+        """
         if self.status == 'CONNECTED':
-            q.logger.log("Client is already connected to %s"%(self.server)) 
-            return True       
+            q.logger.log("Client is already connected to %s"%(self.server))
+            return True
         self.server = server
         q.logger.log("Starting the xmpp client to %s at %s"%(self.jid, self.server), 5)
         return self._connect()
-    
+
     def _connect(self):
-        self.status = 'CONNECTING'        
+        self.status = 'CONNECTING'
         q.logger.log("Connecting to server %s with xmpp user %s'" % (self.server, self.jid) )
-        tries = 0 
-        
+        tries = 0
+
         result = self._client.connect((self.server, self.port))
-        while tries < self.NUMBER_OF_RETRIES and not result:   
-            result = self._client.connect((self.server, self.port))          
+        while tries < self.NUMBER_OF_RETRIES and not result:
+            result = self._client.connect((self.server, self.port))
             tries +=1
-            
+
         if not self._client.connected:
             q.logger.log('Failed to connect to server:%s, port:%s'%(self.server, self.port), 4)
             return False
@@ -111,117 +111,117 @@ class XMPPClient(object):
         else:
             q.logger.log('Failed to authenticate user %s with server %s'%(self.jid, self.server), 4)
             return False
-            
+
         #Now it's connected
         self.status = 'CONNECTED'
         self._client.sendInitPresence()
         self._client.RegisterHandler('message', self._messageRecieved)
         self._client.RegisterHandler('presence', self._presenceReceived)
-        
+
         # Make sure we get notified if we get disconnected
         self._client.RegisterDisconnectHandler(self._handleDisconnect)
-        
+
         q.logger.log("Connected to server [%s], trying with usersname [%s]" % (self.server, self.jid), 5)
-        
+
         # enable listener thread
         self._client._listen = True
-        
+
         self._doConnect()
-        
+
         return True
-    
+
     def _handleDisconnect(self):
         """
         Tries to reconnect if the connection is lost.
         """
-        
+
         q.logger.log('Connection lost')
-        
+
         if self.autoreconnect:
             q.logger.log('Trying to reconnect...')
-             
+
             # Remove current executed handler
             self._client.UnregisterDisconnectHandler(self._handleDisconnect)
-            
+
             # disable listener thread
             self._client._listen = False
-                                
-            # Reinitialize client
-            self._client = xmpp.Client(self.domain, port = self.port, debug = [])
-            # Reconnect
-            self._connect()
-            
-            # Should probably sleep here
-            time.sleep(random.randint(5, 10))
-                
-                
+            while not self._client.connected:
+                # Reinitialize client
+                self._client = xmpp.Client(self.domain, port = self.port, debug = [])
+                # Reconnect
+                self._connect()
+                if not self._client.connected:
+                    # Should probably sleep here
+                    time.sleep(random.randint(5, 10))
+
+
     def _doConnect(self):
-        
+
         def _listen(client):
             q.logger.log('Starting listening thread')
-                   
+
             socketlist = {client.Connection._sock:'xmpp'}
-            
+
             last_keepalive = time.time()
-            
+
             while client._listen:
                 (i , _, _) = select.select(socketlist.keys(),[],[],1)
                 try:
                     for each in i:
-                        if socketlist[each] == 'xmpp':                        
-                            client.Process(1)                    
+                        if socketlist[each] == 'xmpp':
+                            client.Process(1)
                         else:
                             q.logger.log("Unknown socket type: %s" % repr(socketlist[each]))
-                            
+
                     # Send keep-alive to prevent the connection get killed by FW
                     now = time.time()
                     if now - last_keepalive >= 60:
                         q.logger.log('Sending keepalive msg')
                         # send keep alive
                         # send msg to ourselves
-                        receiver = '%s@%s' % (client._User, client.Server) 
+                        receiver = '%s@%s' % (client._User, client.Server)
                         resource = client._Resource
-                        
-                        
+
+
                         msg = xmpp.Message(to = '%s/%s'%(receiver, resource), body = 'keepalive', typ = 'chat')
                         client.send(msg)
                         last_keepalive = now
-                          
+
                 except:
                     q.logger.log('Exception occurred while listening %s'%traceback.format_exception(*sys.exc_info()), 4)
-                    
+
             q.logger.log('Stopping listening thread')
-        
+
         t = Thread(target=_listen, args=(self._client,))
         t.start()
-        
-        
+
+
     def _presenceReceived(self, conn, message):
         type_ = message.getType()
         fromm = message.getFrom().getStripped() or ''
-            
+
         q.logger.log("Presence received from %s of type %s"%(fromm, type_), 5)
-        
+
     def _messageRecieved(self, conn, message):
         sender = message.getFrom().getStripped()
         receiver = message.getTo().getStripped()
         resource = message.getFrom().getResource()
         messageid = message.getID()
         message = message.getBody()
-        
-        
-        q.logger.log('Message is received, from:%s, to:%s, id:%s, body:%s'%(sender, receiver, messageid, message)) 
-        
+
+
+        q.logger.log('Message is received, from:%s, to:%s, id:%s, body:%s'%(sender, receiver, messageid, message))
+
         messageHanlder = XMPPMessageHandler()
         messageObject = messageHanlder.deserialize(sender, receiver, resource, messageid, message)
-        
+
         callback = self.callbacks[messageObject.type_]
         if callback:
             callback(messageObject)
         else:
             q.logger.log("Warning, no callback is registered for type:%s"%messageObject.type_)
-            
-            
+
+
     def disconnect(self):
         """
         Disconnects the client to xmpp server with the credentials specified
@@ -231,14 +231,14 @@ class XMPPClient(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-        
+
         # Unregister autoconnect
         self._client.UnregisterDisconnectHandler(self._handleDisconnect)
-        
+
         if self.status == 'NOT_CONNECTED':
             q.logger.log('Client is already not connected')
             return True
-        
+
         q.logger.log("Stopping the xmpp client to %s at server: %s"%(self.jid, self.server), 5)
         self._client.disconnect()
         self.status = 'NOT_CONNECTED'
@@ -248,16 +248,16 @@ class XMPPClient(object):
         ''' Send a presence
         @param to: The jid of the client to send the presence to. None=send to all your friends
         @type to: string
-        @param type: The type of the presence. Possible values: None=available, unavailable, subscribe, subscribed 
+        @param type: The type of the presence. Possible values: None=available, unavailable, subscribe, subscribed
         @type type: string
         '''
         if self.status <> 'RUNNING' and self.status <> 'CONNECTED':
             q.logger.log("Client is not connected")
             return
-        
+
         q.logger.log("Sending presence of type %s to %s"%(str(type_), str(to)), 5)
         self._client.send(xmpp.Presence(to = to, typ = type_))
-        
+
     def sendMessage(self, xmppmessage):
         """
         @param xmppmessage           XMPP message
@@ -267,23 +267,23 @@ class XMPPClient(object):
         @rtype:                      string
 
         @raise e:                    In case an error occurred, exception is raised
-        """        
-        
+        """
+
         if self.status <> 'RUNNING' and self.status <> 'CONNECTED':
             q.logger.log("Client is not connected")
             return
-        
+
         sender = xmppmessage.sender
         receiver = xmppmessage.receiver
-        resource = xmppmessage.resource 
-        
+        resource = xmppmessage.resource
+
         if not isinstance(xmppmessage, XMPPLogMessage):
             q.logger.log("Sending message [%s] from:%s to:%s'"%(str(xmppmessage), sender, receiver),5)
         msg = xmpp.Message(to = '%s/%s'%(receiver, resource), body = str(xmppmessage), typ = 'chat')
         if xmppmessage.messageid:#else an id will be generated by the lib
-            msg.setID(xmppmessage.messageid)            
+            msg.setID(xmppmessage.messageid)
         return self._client.send(msg)
-    
+
     def setCommandReceivedCallback(self, commandHandler):
         """
         @param commandHandler:           Callable which is called whenever a command message is received.
@@ -305,7 +305,7 @@ class XMPPClient(object):
         @param errorHandler:         Callable which is called whenever a error message is received.
         @type errorHandler:          callable
         @note:                       Interface for the callable must be (XMPPErrorMessage)
-        
+
         """
         self.callbacks[TYPE_ERROR] = errorHandler
 
@@ -316,89 +316,89 @@ class XMPPClient(object):
         @note:                       Interface for the callable must be (XMPPResultMessage)
         """
         self.callbacks[TYPE_RESULT] = resultHandler
-    
+
     def setTaskNumberReceivedCallback(self, tasknumberHandler):
         """
         @param messageHandler:       Callable which is called whenever a tasknumber message is received.
         @type messageHandler:        callable
         @note:                       Interface for the callable must be (XMPPTaskNumberMessage)
         """
-        self.callbacks[TYPE_TASKNUMBER] = tasknumberHandler    
-    
+        self.callbacks[TYPE_TASKNUMBER] = tasknumberHandler
+
     def setMessageReceivedCallback(self, messageHandler):
         """
         @param messageHandler:       Callable which is called whenever a message is received.
         @type messageHandler:        callable
         @note:                       Interface for the callable must be (XMPPMessage)
         """
-        self.callbacks[TYPE_UNKNOWN] = messageHandler        
+        self.callbacks[TYPE_UNKNOWN] = messageHandler
 
 
 class XMPPMessageHandler(object):
     """
     Serialize and Deserialize the XMPPMessage object to/from Pylabs XMPP message format
-    """    
-    
+    """
+
     def serialize(self, xmppmessage):
         """
         Serializes the XMPPMessage object to PyLabs XMPP message format
-        
+
         @param command:              String containing command to execute e.g. 'machine start'
         @type command:               string
         @param params:               List of strings which are input parameters for the specified command e.g. ['mymachine']
-        
+
         @return:                     String containing command in PyLabs XMPP message format
         @rtype:                      string
         @note:                       Example !machine start
         @note:                                mymachine
         @note:                               !
-        """        
-        
+        """
+
         return xmppmessage.format()
-        
+
     def deserialize(self, sender, receiver, resource, messageid, message):
         """
         Deserializes a PyLabs XMPP command message to a XMPPMessage object
-        
+
         @param message:              String containing command in PyLabs XMPP message format
         @type message:               string
-        
+
         @return:                     XMPPMessage object
         @rtype:                      XMPPMessage
         """
         message = message or '' # to avoid None message sent while is typing event
         message = message.strip()
-        try:            
+        try:
             if message.startswith(BEGIN_RESULT): # we must check on result before checking on command prefix
-                index = message.find('\n')            
+                index = message.find('\n')
                 tasknumber, returncode = message[len(BEGIN_RESULT):index].split()
                 returnvalue = message[index+1:-len(END_RESULT)]
                 return XMPPResultMessage(sender, receiver, resource, messageid, tasknumber, returncode, returnvalue)
             elif message.startswith(BEGIN_COMMAND):# !<command> [subcommand]\n[params]*\n!
-                index = message.find('\n')                     
+                index = message.find('\n')
                 commandLine = message[len(BEGIN_COMMAND):index].split()
                 command = commandLine.pop(0)
-                subcommand = commandLine[0] if commandLine else ''            
+                subcommand = commandLine[0] if commandLine else ''
                 args, options= self._getArgumentsAndOptions(message[index+1:])
                 return XMPPCommandMessage(sender, receiver, resource, messageid, command, subcommand, {'params':args, 'options':options})
-            elif message.startswith(BEGIN_LOG): # @<tasknr>|<logentry>            
+            elif message.startswith(BEGIN_LOG): # @<tasknr>|<logentry>
                 index = message.find('|')
                 tasknumber = message[1:index]
                 logentry = message[index+1:]
                 return XMPPLogMessage(sender, receiver, resource, messageid, tasknumber, logentry)
-            elif message.startswith(BEGIN_TASKNR):# <ID>Tasknumber          
+            elif message.startswith(BEGIN_TASKNR):# <ID>Tasknumber
                 tasknumber = message[len(BEGIN_TASKNR):]
                 return XMPPTaskNumberMessage(sender, receiver, resource, messageid, tasknumber)
             else:
                 return XMPPMessage(sender, receiver, resource, messageid, message)
         except Exception:
             return XMPPMessage(sender, receiver, resource, messageid, message)
-        
-    
-    def _getArgumentsAndOptions(self, commandInput): 
+
+
+    def _getArgumentsAndOptions(self, commandInput):
         """
         Parse the Arguments and options out of the commandInputs
-                
+
         """
         args = commandInput.split("$")
         argsResult = list()
@@ -406,13 +406,13 @@ class XMPPMessageHandler(object):
         def mod(arg):
             arg = arg[:-1]
             if arg[:1] == '-':
-                options.append(arg.strip())                
+                options.append(arg.strip())
             else:
-                argsResult.append(arg.strip())                
-        
+                argsResult.append(arg.strip())
+
         filter(mod, args)
         return argsResult, options
-    
+
 class XMPPMessage(object):
     """
     Class representing a generic PyLabs XMPP message
@@ -424,10 +424,10 @@ class XMPPMessage(object):
         self.resource = resource
         self.messageid = messageid
         self.message = message
-        
+
     def format(self):
         return self.message
-    
+
     def __str__(self):
         return self.format()
 
@@ -435,7 +435,7 @@ class XMPPCommandMessage(XMPPMessage):
     """
     Class representing a PyLabs XMPP command message
     """
-    type_ = TYPE_COMMAND    
+    type_ = TYPE_COMMAND
     def __init__(self, sender, receiver, resource, messageid, command, subcommand='', params=None):
         self.sender = sender
         self.receiver = receiver
@@ -444,14 +444,14 @@ class XMPPCommandMessage(XMPPMessage):
         self.command = command
         self.subcommand = subcommand
         self.params = params
-    
-    def format(self):            
+
+    def format(self):
         params = self.params['params'] + self.params['options'] if self.params else list()
         return '%(begin)s%(command)s %(subcommand)s\n%(params)s\n%(end)s'%{'begin':BEGIN_COMMAND, 'end':END_COMMAND, 'command':self.command, 'subcommand':self.subcommand if self.subcommand else '', 'params':'\n$'.join(params)}
-    
+
     def __str__(self):
-        return self.format()       
-                
+        return self.format()
+
 
 
 class XMPPResultMessage(XMPPMessage):
@@ -460,7 +460,7 @@ class XMPPResultMessage(XMPPMessage):
     """
     type_ = TYPE_RESULT
     def __init__(self, sender, receiver, resource, messageid, tasknumber, returncode, returnvalue):
-        
+
         self.sender = sender
         self.receiver = receiver
         self.resource = resource
@@ -468,12 +468,12 @@ class XMPPResultMessage(XMPPMessage):
         self.tasknumber = tasknumber
         self.returncode = returncode
         self.returnvalue = returnvalue
-        
+
     def format(self):
-        return '%(begin)s%(tasknumber)s %(returncode)s\n%(returnvalue)s\n%(end)s'%{'begin':BEGIN_RESULT, 'end':END_RESULT, 'tasknumber':self.tasknumber, 'returncode':self.returncode, 'returnvalue':self.returnvalue}    
-    
+        return '%(begin)s%(tasknumber)s %(returncode)s\n%(returnvalue)s\n%(end)s'%{'begin':BEGIN_RESULT, 'end':END_RESULT, 'tasknumber':self.tasknumber, 'returncode':self.returncode, 'returnvalue':self.returnvalue}
+
     def __str__(self):
-        return self.format() 
+        return self.format()
 
 
 class XMPPLogMessage(XMPPMessage):
@@ -488,10 +488,10 @@ class XMPPLogMessage(XMPPMessage):
         self.messageid = messageid
         self.tasknumber = tasknumber
         self.logentry = logentry
-        
+
     def format(self):
         return '@%s|%s'%(self.tasknumber, self.logentry)
-    
+
     def __str__(self):
         return self.format()
 
@@ -515,10 +515,9 @@ class XMPPTaskNumberMessage(XMPPMessage):
         self.resource = resource
         self.messageid = messageid
         self.tasknumber = tasknumber
-    
+
     def format(self):
         return '%(begin)s%(tasknumber)s'%{'begin':BEGIN_TASKNR, 'tasknumber':self.tasknumber}
-    
+
     def __str__(self):
         return self.format()
-    
