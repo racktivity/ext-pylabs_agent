@@ -21,8 +21,9 @@ class AgentConfig:
 
             config.update(con.machine.registerAgent(mac)['result'])
 
-            config['hostname']=config.get('hostname', config['xmppserver'])
-            config['xmppserver']=con._server
+            config['hostname']    = config.get('hostname', config['xmppserver'])
+            config['xmppserver']  = con._server
+            config['enable_cron'] = True
             q.logger.log('registerAgent UPDATE %r'%config)
 
         self._setConfig(config)
@@ -40,7 +41,7 @@ class AgentConfig:
         self.hostname = config.get('hostname',self.xmppserver)
         self.agentcontrollerguid = config.get('agentcontrollerguid', None)
         self.subscribed = config.get('subscribed', None)
-        self.cronEnabled = config['enable_cron'] == 'True' if 'enable_cron' in config else False
+        self.cronEnabled = config.get('enable_cron', False)
         self.passwd = config.get('passwd', 'qbase_agent')
         self.login = config.get('login', 'qbase_agent')
         self.domain = config.get('domain', 'qbase_agent')
