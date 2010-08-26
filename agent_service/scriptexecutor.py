@@ -32,12 +32,8 @@ class ScriptExecutor:
             script = base64.decodestring(script)
             p = str(params)
             
-            # hmmm...
-            lines = ['\n']
-            lines.extend(script.split('\n'))
-            s = '\n    '.join(lines)
-            
             result_path = self._getScriptResultPath(jobguid)
+            error_path  = result_path.replace('.result', '.error') 
             
             script_content = \
             """import sys
@@ -49,9 +45,6 @@ from agent_service.logtarget import AgentLogTarget
 import traceback, time, yaml
 import base64
 
-q.logger.logTargetAdd(AgentLogTarget())
-
-
 ##temporary fix SSOBF-217
 import os
 os.umask(022)
@@ -62,12 +55,9 @@ params = %(params)s
 
 errormessage = None
 
-try:
 #### SCRIPT ####
 %(script)s
 #### /SCRIPT ####
-except:
-    errormessage = traceback.format_exc()
 
 # Construct the return message
 returnobject = {"params":params}
@@ -80,13 +70,14 @@ result_file = '%(result_path)s'
 q.system.fs.writeFile(result_file, yaml.dump(returnobject))
 
 sys.exit(0)           
-""" % {'params': p, 'script': s, 'result_path': result_path}
+""" % {'params': p, 'script': script, 'result_path': result_path}
             
             script_path = self._getScriptPath(jobguid)
             
             q.system.fs.writeFile(script_path, script_content)
-            
-            proc = Popen([PYTHON_BIN, script_path], stdout=None, stdin=None, stderr=None, close_fds=True)
+           
+            with open(error_path, "wb") as out: 
+                proc = Popen([PYTHON_BIN, script_path], stdout=out, stdin=None, stderr=out, close_fds=True)
             self._processManager.addProcess(proc, fromm, jobguid)
 
     def stop(self, fromm, jobguid):
@@ -117,13 +108,17 @@ sys.exit(0)
             proc_error_code = proc.poll()
             if proc_error_code <> None:
                 (agentcontrollerguid, jobguid) = self._processManager.getJob(proc.pid)
-                
-                result_path = self._getScriptResultPath(jobguid)
-
+               
                 errorOutput = None
-                
+ 
+                result_path = self._getScriptResultPath(jobguid)
+                error_path  = result_path.replace('.result', '.error')
+
                 if not q.system.fs.exists(result_path) or proc_error_code <> 0:
-                    errorOutput = "RECEIVED WRONG ERROR CODE FROM WRAPPER: Could not retrieve output\n"
+                    errorOutput = "RECEIVED WRONG ERROR CODE FROM WRAPPER: \n"
+                    if q.system.fs.exists(error_path):
+                        error_output = q.system.fs.fileGetContents(error_path)
+                        errorOutput = '\n'.join([errorOutput, error_output])
                 else:
                     output = q.system.fs.fileGetContents(result_path)
                     
@@ -148,7 +143,7 @@ sys.exit(0)
                 
                 q.system.fs.remove(script_path, onlyIfExists=True)
                 q.system.fs.remove(result_path, onlyIfExists=True)
-                    
+                q.system.fs.remove(error_path, onlyIfExists=True)   
 
         reactor.callLater(0.1, self._checkProgress)
 
