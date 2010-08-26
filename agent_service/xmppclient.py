@@ -1,6 +1,3 @@
-import base64
-import zlib
-
 from pymonkey import q
 
 from twisted.words.protocols.jabber import xmlstream, client, jid
@@ -28,7 +25,7 @@ class XMPPClient:
         self.timeOut = timeOut
         self.hostname = hostname
         self.xmpp_user = None
-
+        
         self.status = 'NOT_CONNECTED'
 
         self.messageReceivedCallback = None
@@ -59,7 +56,7 @@ class XMPPClient:
         self.connector.disconnect()
 
 
-    def sendMessage(self, to, type, id, message=' '):
+    def sendMessage(self, to, type, id, message=''):
         ''' Send a message
         @param to: The username of the client to send the message to
         @type to: string
@@ -77,7 +74,7 @@ class XMPPClient:
 
         elemToSend = domish.Element(('jabber:client','message'), attribs={'to':to+"@"+self.hostname, 'type':type, 'id':id})
         body = domish.Element((None, 'body'))
-        body.addContent(base64.encodestring(zlib.compress(message)))
+        body.addContent(message)
         elemToSend.addContent(body)
         self.xmlstream.send(elemToSend)
 
@@ -176,6 +173,7 @@ class XMPPClient:
         self.xmlstream = xmlstream
         self.xmlstream.addObserver('/presence', self._presence_received)
         self.xmlstream.addObserver('/message',  self._message_received)
+        self.xmlstream.addObserver('//event/stream/error', self._error_received)
 
     def _authenticated(self, xmlstream):
         self.status = 'RUNNING'
@@ -215,12 +213,28 @@ class XMPPClient:
         fromm = elem.getAttribute('from').split("@")[0]
         type = elem.getAttribute('type')
         id = elem.getAttribute('id')
-        message = zlib.decompress(base64.decodestring(str(elem.children[0].children[0])))
+        
+        if elem.children and elem.children[0].children:
+            message = str(elem.children[0].children[0])
+        else:
+            message = ''
 
         q.logger.log("[XMPPCLIENT] Message '" + str(id) + "' of type '" + str(type) +"'" + "' received from '" + fromm + "'", 5)
 
         if self.messageReceivedCallback:
             self.messageReceivedCallback(fromm, type, id, message)
+        
+    def _error_received(self, failure):
+        import inspect      
+        
+        q.logger.log("[XMPPCLIENT] Error received: %s" % failure.getErrorMessage(), 1)
+        
+        try:
+            q.errorconditionhandler.raiseCritical('Agent XMPP error: %s' % failure.getErrorMessage(), escalate=True)            
+        except:
+            pass
+        
+        
 
     def _init_failed(self, failure):
         self._disconnected('Init failed ' + str(failure))

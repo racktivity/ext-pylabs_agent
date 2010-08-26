@@ -1,15 +1,20 @@
 from pymonkey import q, i
 
+import base64
+import zlib
 import yaml
+import random
+
 from agent_service.xmppclient import XMPPClient
 from agent_service.scriptexecutor import ScriptExecutor
 
 class Agent:
 
-    def __init__(self, agentguid, xmppServer, password, agentcontrollerguid, hostname, subscribedCallback=None):
+    def __init__(self, agentguid, xmppServer, password, agentcontrollerguid, hostname, subscribedCallback=None, max_content_length=1024*1024):
         self.agentguid = agentguid
         self.agentcontrollerguid = agentcontrollerguid
         self.subscribedCallback = subscribedCallback
+        self.max_content_length = max_content_length
 
         self.xmppclient = XMPPClient(agentguid, xmppServer, password, hostname)
         self.xmppclient.setMessageReceivedCallback(self._message_received)
@@ -32,8 +37,10 @@ class Agent:
         self.xmppclient.keep_alive()
 
     def _message_received(self, fromm, type, id, message):
+                
         if fromm == self.agentcontrollerguid:
             if type == 'start':
+                message = zlib.decompress(base64.decodestring(message))
                 self._executeScript(fromm, id, message)
             elif type == 'stop':
                 self._stopScript(fromm, id)
@@ -59,10 +66,21 @@ class Agent:
             q.logger.log("[AGENT] Agent '" + self.agentguid + "' received presence from agent '" + fromm + "', nothing done: not the agentcontroller.", 5)
 
     def _script_done(self, fromm, jobguid, params):
-        self.xmppclient.sendMessage(fromm, 'agent_done', jobguid, yaml.dump(params))
+        self._sendMessage(fromm, 'agent_done', jobguid, yaml.dump(params))
 
     def _script_died(self, fromm, jobguid, errorcode, erroroutput):
-        self.xmppclient.sendMessage(fromm, 'agent_error', jobguid, yaml.dump({'errorcode':errorcode, 'erroroutput':erroroutput}))
+        self._sendMessage(fromm, 'agent_error', jobguid, yaml.dump({'errorcode':errorcode, 'erroroutput':erroroutput}))
+        
+    def _sendMessage(self, fromm, type, id, message):
+        
+        content = base64.encodestring(zlib.compress(message))
+        
+        if len(content) > self.max_content_length:
+            type = 'agent_error'
+            content = {'erroroutput': 'Message content size (%s) is greater than max allowed size (%s)' % (len(content), self.max_content_length), 'errorcode': '-1'}
+            content = base64.encodestring(zlib.compress(yaml.dump(content)))
+            
+        self.xmppclient.sendMessage(fromm, type, id, content)
 
     def log(self, pid, level, log_message):
         job = self.scriptexecutor.getJob(pid)
