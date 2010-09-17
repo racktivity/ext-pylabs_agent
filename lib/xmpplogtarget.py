@@ -81,4 +81,5 @@ class XMPPLogTarget(object):
         
         self._logReceivedCallback = callback
         
-    
+    def close(self):
+        pass
