@@ -50,7 +50,7 @@ class SchedulerClient(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-        self._proxy.scheduler.start(groupname)
+        return self._proxy.scheduler.start(groupname)
         
         
     def stop(self, groupname = None):
@@ -66,7 +66,7 @@ class SchedulerClient(object):
         @raise e:                    In case an error occurred, exception is raised
         """
         
-        self._proxy.scheduler.stop(groupname)
+        return self._proxy.scheduler.stop(groupname)
     
     
     def getStatus(self, groupname = None):
@@ -82,8 +82,13 @@ class SchedulerClient(object):
         @raise e:                    In case an error occurred, exception is raised
         """
         
-        return self._proxy.scheduler.getStatus(groupname)
-    
+        result = self._proxy.scheduler.getStatus(groupname)
+        try:
+            for key, value in result.copy().iteritems():
+                result[key] = q.enumerators.AppStatusType.getByName(value)
+        except Exception, ex:
+            q.logger.log(str(ex), 5)
+        return result
     
     def getUpTime(self):
         """
@@ -97,7 +102,7 @@ class SchedulerClient(object):
         return self._proxy.scheduler.getUpTime()
     
     
-    def getParams(self, groupname = None):
+    def getParams(self, groupname):
         """
         Gets the parameters of the scheduler specified
         

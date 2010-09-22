@@ -89,14 +89,14 @@ class Scheduler(object):
         if not groupname:
             for group in self.groups:
                 q.logger.log('Starting Scheduler for group %s'%group, 5)
-                if self.getStatus(group)[group] == q.enumerators.AppStatusType.RUNNING:
+                if q.enumerators.AppStatusType.getByName(self.getStatus(group).get(group, 'unknown')) == q.enumerators.AppStatusType.RUNNING:
                     q.console.echo('Group %s already running'%group)
                     continue
                 self.groups[group].start()
                 self.runningGroups.append(group)
         elif groupname in self.groups.keys():
             q.logger.log('Starting Scheduler for group %s'%groupname, 5)
-            if self.getStatus(groupname)[groupname] == q.enumerators.AppStatusType.RUNNING:
+            if q.enumerators.AppStatusType.getByName(self.getStatus(groupname).get(groupname, 'unknown')) == q.enumerators.AppStatusType.RUNNING:
                 q.console.echo('Group %s already running'%groupname)
             else:
                 self.groups[groupname].start()
@@ -149,7 +149,7 @@ class Scheduler(object):
         
         @return: True if the group stopped successfully, raise exception otherwise
         """
-        if not self.getStatus(groupname).get(groupname, False) == q.enumerators.AppStatusType.RUNNING:
+        if not q.enumerators.AppStatusType.getByName(self.getStatus(groupname).get(groupname, 'unknown')) == q.enumerators.AppStatusType.RUNNING:
             q.logger.log('Scheduler for group %s is not running'%groupname, 5)
             return True
         task = self.groups[groupname]
@@ -181,7 +181,7 @@ class Scheduler(object):
         if groupname and not groupname in self.groups:
             raise ValueError('Group %s does not exit'%groupname)
         if groupname and groupname in self.groups:
-            return {groupname: q.enumerators.AppStatusType.RUNNING if groupname in self.runningGroups and self.groups[groupname].isAlive() else q.enumerators.AppStatusType.HALTED}
+            return {groupname: str(q.enumerators.AppStatusType.RUNNING) if groupname in self.runningGroups and self.groups[groupname].isAlive() else str(q.enumerators.AppStatusType.HALTED)}
         return dict(zip(self.groups.keys(), map(lambda group: str(q.enumerators.AppStatusType.RUNNING) if group in self.runningGroups and self.groups[group].isAlive() else str(q.enumerators.AppStatusType.HALTED), self.groups.keys())))
         
         
@@ -211,7 +211,9 @@ class Scheduler(object):
         """
         if not groupname in self.groups:
             raise ValueError('Group %s does not exist'%groupname)
-        return self.groups[groupname].params
+        params = self.groups[groupname].params.copy()
+        params.pop('STOP')
+        return params
 
 
 class SchedulerGroup(KillableThread):

@@ -55,7 +55,7 @@ class SchedulerAPI(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-        self.scheduler.start(groupname)
+        return self.scheduler.start(groupname)
         
     
     def stop(self, groupname = None):
@@ -71,7 +71,7 @@ class SchedulerAPI(object):
         @raise e:                    In case an error occurred, exception is raised
         """
         
-        self.scheduler.stop(groupname)
+        return self.scheduler.stop(groupname)
     
     
     def getStatus(self, groupname = None):
@@ -102,7 +102,7 @@ class SchedulerAPI(object):
         return self.scheduler.getUpTime()
     
     
-    def getParams(self, groupname = None):
+    def getParams(self, groupname):
         """
         Gets the parameters of the scheduler specified
         
