@@ -129,5 +129,6 @@ class WFLAgent:
         """
         return self.__agent.agentguid
 
-    def __del__(self):
+    @q.manage.applicationserver.service_close_handler
+    def close_service(self):
         self.__agent.disconnect()
