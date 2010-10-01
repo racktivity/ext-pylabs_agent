@@ -67,10 +67,25 @@ class XMPPClient(object):
         self.status = 'NOT_CONNECTED'
         self.callbacks = {TYPE_COMMAND:None, TYPE_LOG:None, TYPE_RESULT:None, TYPE_ERROR:None, TYPE_TASKNUMBER:None, TYPE_UNKNOWN:None}
         self.port = port
-        self._client = xmpp.Client(self.domain, port = self.port, debug = [])
+        self._client = None
         self.anonymous = anonymous
         self.autoreconnect = True
+        self._bg_thr = None
+        
+    def _retrying_connect(client) :
+    
+        tryCnt = 0.0
+        backoffPeriod = 2.0
+        backoffMax = 60.0
+        
+        while ( client._connect() == False ) :
+            tryCnt += 1.0
+            q.logger.log( "Retrying connect in %0.2f sec" % min( tryCnt*backoffPeriod, backoffMax ) )
+            time.sleep( min( tryCnt*backoffPeriod, backoffMax ) )
 
+        client._doConnect()
+        return True
+    
     def connect(self, server):
         """
         Connects the client to xmpp server with the credentials specified
@@ -83,25 +98,42 @@ class XMPPClient(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-        if self.status == 'CONNECTED':
+        
+        if self.status == 'CONNECTED' :
             q.logger.log("Client is already connected to %s"%(self.server))
             return True
+        if self.autoreconnect and self._bg_thr is not None:
+            q.logger.log("Client is already trying to connect to %s"%(self.server))
+            return True
+        
         self.server = server
         q.logger.log("Starting the xmpp client to %s at %s"%(self.jid, self.server), 5)
-        return self._connect()
+        if ( self.autoreconnect ) :
+            self._bg_thr = Thread( target = self._retrying_connect )
+            self._bg_thr.start()
+            return True
+        else :
+            if not self._connect() :
+                return False
+            self._doConnect()
 
+    
     def _connect(self):
         self.status = 'CONNECTING'
         q.logger.log("Connecting to server %s with xmpp user %s'" % (self.server, self.jid) )
         tries = 0
 
+        if self._client is None:
+            self._client = xmpp.Client(self.domain, port = self.port, debug = [])
+        
         result = self._client.connect((self.server, self.port))
-        while tries < self.NUMBER_OF_RETRIES and not result:
+        while tries < self.NUMBER_OF_RETRIES and not result :
             result = self._client.connect((self.server, self.port))
             tries +=1
 
         if not self._client.connected:
             q.logger.log('Failed to connect to server:%s, port:%s'%(self.server, self.port), 4)
+            self._client = None
             return False
         username = xmpp.JID(self.jid).getNode() if not self.anonymous else None
         if self._client.auth(username, self.password):
@@ -109,7 +141,15 @@ class XMPPClient(object):
             self.status = 'RUNNING'
             q.logger.log("Server '%s' authenticated user '%s'"%(self.server, self.jid), 3)
         else:
-            q.logger.log('Failed to authenticate user %s with server %s'%(self.jid, self.server), 4)
+            msg = 'Failed to authenticate user %s with server %s'%(self.jid, self.server)
+            tags = q.base.tags.getObject()
+            tags.tagSet('login', self.jid )
+            tags.tagSet('server', self.server)
+            try :
+                q.errorconditionhandler.raiseWarning( msg, typeid='SSO-AGENT-0001',tags=tags.tagstring,escalate=True)
+            except:
+                q.logger.log(msg, 4)
+            self._client = None
             return False
 
         #Now it's connected
@@ -123,10 +163,6 @@ class XMPPClient(object):
 
         q.logger.log("Connected to server [%s], trying with usersname [%s]" % (self.server, self.jid), 5)
 
-        # enable listener thread
-        self._client._listen = True
-
-        self._doConnect()
 
         return True
 
@@ -147,18 +183,14 @@ class XMPPClient(object):
             self._client._listen = False
             while not self._client.connected:
                 # Reinitialize client
-                self._client = xmpp.Client(self.domain, port = self.port, debug = [])
-                # Reconnect
-                self._connect()
-                if not self._client.connected:
-                    # Should probably sleep here
-                    time.sleep(random.randint(5, 10))
+                self._client = None
+                self._retrying_connect()
 
 
     def _doConnect(self):
 
         def _listen(client):
-            q.logger.log('Starting listening thread')
+            q.logger.log('Starting listening')
 
             socketlist = {client.Connection._sock:'xmpp'}
 
@@ -182,7 +214,6 @@ class XMPPClient(object):
                         receiver = '%s@%s' % (client._User, client.Server)
                         resource = client._Resource
 
-
                         msg = xmpp.Message(to = '%s/%s'%(receiver, resource), body = 'keepalive', typ = 'chat')
                         client.send(msg)
                         last_keepalive = now
@@ -192,8 +223,14 @@ class XMPPClient(object):
 
             q.logger.log('Stopping listening thread')
 
-        t = Thread(target=_listen, args=(self._client,))
-        t.start()
+        # enable listener thread
+        self._client._listen = True
+        
+        if (self.autoreconnect ) :
+            _listen( self._client )
+        else :
+            t = Thread(target=_listen, args=(self._client,))
+            t.start()
 
 
     def _presenceReceived(self, conn, message):
