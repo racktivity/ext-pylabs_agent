@@ -43,7 +43,7 @@ class XMPPClient(object):
     classdocs
     '''
     NUMBER_OF_RETRIES = 3
-    def __init__(self, jid, password, port=5222,resource=None, anonymous=False):
+    def __init__(self, jid, password, port=5222,resource=None, anonymous=False,getPassword=None):
         '''
         Constructor
         @param jid:                  XMPP JID
@@ -57,6 +57,9 @@ class XMPPClient(object):
 
         @param anonymous: indicates whether to login anonymously on the xmppserver
         @type anonymous: boolean
+        
+        @param getPassword: callback method to reload the password. No params, returns password
+        @type method 
         '''
         jidObj = xmpp.JID(jid)
         self.domain = jidObj.getDomain()
@@ -71,19 +74,20 @@ class XMPPClient(object):
         self.anonymous = anonymous
         self.autoreconnect = True
         self._bg_thr = None
+        self.getPassword = getPassword
         
-    def _retrying_connect(client) :
+    def _retrying_connect(self) :
     
         tryCnt = 0.0
         backoffPeriod = 2.0
         backoffMax = 60.0
         
-        while ( client._connect() == False ) :
+        while ( self._connect() == False ) :
             tryCnt += 1.0
-            q.logger.log( "Retrying connect in %0.2f sec" % min( tryCnt*backoffPeriod, backoffMax ) )
+            q.logger.log( "Retrying connect for %s in %0.2f sec" % (self.jid, min( tryCnt*backoffPeriod, backoffMax ) ) )
             time.sleep( min( tryCnt*backoffPeriod, backoffMax ) )
 
-        client._doConnect()
+        self._doConnect()
         return True
     
     def connect(self, server):
@@ -145,6 +149,12 @@ class XMPPClient(object):
             tags = q.base.tags.getObject()
             tags.tagSet('login', self.jid )
             tags.tagSet('server', self.server)
+            if self.getPassword is not None:
+                try:
+                    self.password = self.getPassword()
+                except Exception, ex:
+                    q.logger.log("Failed to reload password (%s: %s)" % (ex.__class__.__name__, ex) )
+                
             try :
                 q.errorconditionhandler.raiseWarning( msg, typeid='SSO-AGENT-0001',tags=tags.tagstring,escalate=True)
             except:

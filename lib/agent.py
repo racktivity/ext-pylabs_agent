@@ -121,6 +121,13 @@ class Agent(object):
     def reloadConfig(self, registerAnonymous=True):
         """
         """
+        def createLambda(f, *args,**kwargs):
+            return lambda: f(*args,**kwargs)
+
+        def reloadPassword( section ):
+            cfg = q.config.getConfig('agent_accounts')
+            return cfg[section]['password']
+                
         if not 'agent' in q.config.list() or not 'agent_accounts' in q.config.list() or not 'agent_acls' in q.config.list():
             raise RuntimeError('Agent config file %s does not exist')
 
@@ -136,7 +143,8 @@ class Agent(object):
             jid = "%s@%s"%(sectionInfo.get('agentname'), sectionInfo.get('domain'))
             isAnonymous = sectionInfo.get('anonymous', False)
             anonymous = True if isAnonymous == '1' or isAnonymous == 'True' else False
-            client = XMPPClient(jid, sectionInfo.get('password'), anonymous=anonymous)
+            client = XMPPClient(jid, sectionInfo.get('password'), anonymous=anonymous, getPassword = createLambda(reloadPassword, accountSection) )
+            
             self.acl[jid] = AgentACL(sectionInfo.get('agentname'), sectionInfo.get('domain'), map(lambda x: aclSections[x], filter(lambda x: aclSections[x].get('account_name') == accountSection, aclSections)))
             self._servers[jid] = sectionInfo.get('server')
             # register the required events
@@ -172,6 +180,8 @@ class Agent(object):
         accountSectionDicts = map(lambda section: section.values()[0], map(lambda x: {x:accountSections[x]},  accountSections))
         jidToAgentcontroller = dict(map(lambda section: ("%s@%s"%(section.get('agentname'), section.get('domain')), \
                                                          "%s@%s"%(section.get('agentcontrollername'), section.get('domain'))), accountSectionDicts))#create {jid: agentcontrolerjid}
+        jidToSectionName = dict(map(lambda item: ("%s@%s"%(item[item.keys()[0]].get('agentname'), item[item.keys()[0]].get('domain')), item.keys()[0]), accountSections)) #create {jid : sectionName}
+        
         def _passwordChanged(id, xmppMessages):
             resultMessage = xmppMessages[-1]
             q.logger.log('result message is received %s'% resultMessage, 5)
