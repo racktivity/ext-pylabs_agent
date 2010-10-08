@@ -73,7 +73,7 @@ import time
 q.application.appname = 'agent'
 q.application.start()
 
-SLEEP_INTERVAL = 5
+SLEEP_INTERVAL = 2
 
 agentVarDir = q.system.fs.joinPaths(q.dirs.varDir, 'agent')
 if not q.system.fs.exists(agentVarDir):
@@ -81,6 +81,22 @@ if not q.system.fs.exists(agentVarDir):
 
 agent = Agent()
 agent.start()
-while True:
-    time.sleep(SLEEP_INTERVAL)
+
+accountActive = True
+while accountActive:
+    accountActive = False
+    for jid in agent.accounts.keys() : 
+        
+        try:
+            accountActive = accountActive or not agent.accounts[jid].isShuttingDown()
+        except AttributeError, ex:
+            # Race condition can recreate the account object while re-connecting
+            accountActive = True
+        except Exception, ex :
+            q.logger.log("%s" % ex)
+        
+        
+
+    if accountActive:
+        time.sleep(SLEEP_INTERVAL)
  

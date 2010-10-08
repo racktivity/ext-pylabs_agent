@@ -97,6 +97,7 @@ class Agent(object):
             else:
                 q.logger.log('Failed to register agent %s'%messageIdToJid[id], 5)
         countID = 0
+        send_retries = dict()
         for jid, client in self.accounts.items():
             if not client.anonymous:
                 continue
@@ -107,14 +108,38 @@ class Agent(object):
             messageid = str(countID)
             finished[messageid] = False
             mappers[jid].registerTaskCallback(messageid, _messagesReceived)
-            messageid = client.sendMessage(XMPPCommandMessage(jid, jidToAgentcontroller[jid], '', messageid, 'domaincontroller', subcommand='register', params={'params':[client.username, client.password, client.domain],  'options': []}))
+            sent_messageid = client.sendMessage(XMPPCommandMessage(jid, jidToAgentcontroller[jid], '', messageid, 'domaincontroller', subcommand='register', params={'params':[client.username, client.password, client.domain],  'options': []}))
+            if sent_messageid is None :
+               send_retries[jid] = messageid 
             messageIdToJid[messageid] = jid
+            
         timeout = self.timeout
         while timeout and filter(lambda item: not item, finished.values()):
+            for jid in send_retries.keys():
+                messageid = send_retries[jid]
+                client = self.accounts[jid]
+                sent_messageid = client.sendMessage(XMPPCommandMessage(jid, jidToAgentcontroller[jid], '', messageid, 'domaincontroller', subcommand='register', params={'params':[client.username, client.password, client.domain],  'options': []}))
+                if sent_messageid is not None:
+                    del send_retries [jid]
+                else: 
+                    q.logger.log( "Failed to send register message" )
+                
             time.sleep(1)
             timeout -= 1
+            
         if not timeout:
+            
             q.logger.log('timeout occurred while registering agents, status: %s'%map(lambda id: {messageIdToJid[id]: finished[id]}, finished))
+            msg_f = "Agent registration failed for %s"
+            failed_msg_ids = filter( lambda x: not finished[x], finished.keys() )
+            for msg_id in failed_msg_ids :
+                jid = messageIdToJid[msg_id]
+                msg = msg_f % jid 
+                
+                tags = q.base.tags.getObject()
+                tags.tagSet('login', jid )
+                q.errorconditionhandler.raiseCritical( msg, typeid='SSO-AGENT-0002',tags=tags.tagstring,escalate=True)
+                
         if filter(lambda item: item, finished.values()):
             self.reloadConfig(registerAnonymous=False)
 
@@ -153,6 +178,8 @@ class Agent(object):
             client.setErrorReceivedCallback(self._onErrorReceived)
             client.setResultReceivedCallback(self._onResultReceived)
             client.setMessageReceivedCallback(self._onMessageReceived)
+            if self.accounts.has_key(jid) and self.accounts[jid] is not None :
+                self.accounts[jid].disconnect()
             self.accounts[jid] = client
             enabled = sectionInfo.get('enabled')
             self._isEnabled[jid] = True if enabled == '1' or enabled == 'True' else False
@@ -173,35 +200,53 @@ class Agent(object):
         if not self._isEnabled[jid]:
             q.logger.log('Account %s is not enabled'% jid, 4)
             return
-
         messageIdToJid = dict()
         agentConfigFile = q.config.getInifile('agent_accounts')
         accountSections = q.config.getConfig('agent_accounts')
         accountSectionDicts = map(lambda section: section.values()[0], map(lambda x: {x:accountSections[x]},  accountSections))
         jidToAgentcontroller = dict(map(lambda section: ("%s@%s"%(section.get('agentname'), section.get('domain')), \
                                                          "%s@%s"%(section.get('agentcontrollername'), section.get('domain'))), accountSectionDicts))#create {jid: agentcontrolerjid}
-        jidToSectionName = dict(map(lambda item: ("%s@%s"%(item[item.keys()[0]].get('agentname'), item[item.keys()[0]].get('domain')), item.keys()[0]), accountSections)) #create {jid : sectionName}
-        
+
+        a = accountSections 
+        jidToSectionName = dict(map(lambda item: ("%s@%s"%(a[item].get('agentname'), a[item].get('domain')), item), accountSections)) #create {jid : sectionName}
+     
+	passwordChangedInConfig = False   
         def _passwordChanged(id, xmppMessages):
             resultMessage = xmppMessages[-1]
-            q.logger.log('result message is received %s'% resultMessage, 5)
             if resultMessage.returncode == '0':
                 q.logger.log('password changed successfully', 5)
                 agentConfigFile.setParam(jidToSectionName[messageIdToJid[id]], 'password', newPasswd)
+                passwordChangedInConfig = True
             else:
-                q.logger.log('Failed to register agent %s'%messageIdToJid[id], 5)
+                q.logger.log('Failed to register agent password for %s'%messageIdToJid[id], 5)
 
         client = self.accounts[jid]
         client.connect(self._servers[jid])
         caller = TaskCallbackMapper(client)
         messageid = '9'
+        messageIdToJid[messageid] = jid
         caller.registerTaskCallback(messageid, _passwordChanged)
-        messageid = client.sendMessage(XMPPCommandMessage(jid, jidToAgentcontroller[jid], '', messageid, 'domaincontroller', \
+        
+        sentMsgId = None
+        timeout = self.timeout 
+        while ( sentMsgId is None and timeout ) :
+            q.logger.log( "Sending setpasswd msg" )
+            sentMsgId = client.sendMessage(XMPPCommandMessage(jid, jidToAgentcontroller[jid], '', messageid, 'domaincontroller', \
                                                           subcommand='setpasswd', params={'params':[client.username, client.password, client.domain, newPasswd], \
                                                                                          'options': []}))
+            if sentMsgId is None:
+                q.logger.log( "Could not send message. Retrying in 1 sec" )
+                time.sleep(5.0)
+                timeout -= 5
 
-        messageIdToJid[messageid] = jid
+        if ( sentMsgId is None ) :
+            q.logger.log( "Could not send message in a timely manner" )
 
+        timeout = self.timeout
+        while ( not passwordChangedInConfig and timeout ) :
+            time.sleep (1.0 )
+            timeout -= 1
+        #client.disconnect()
 
     def connectAccount(self, jid):
         """
@@ -268,10 +313,17 @@ class Agent(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-
-        for jid in self.accounts:
-            if self._isEnabled[jid]:
-                self.accounts[jid].disconnect()
+        
+        
+        for jid in self.accounts.keys() :
+            if self._isEnabled[jid]:    
+                if self.accounts[jid] is None :
+                    del self.accounts [jid]
+                else :
+                    self.accounts[jid].disconnect()
+                    del self.accounts [jid]
+    
+            
 
     def sendMessage(self, xmppmessage):
         """
@@ -292,8 +344,15 @@ class Agent(object):
             q.logger.log('Account %s does not exist'% xmppmessage.sender)
             return
 
-        self.accounts[xmppmessage.sender].sendMessage(xmppmessage)
-
+        timeout = self.timeout 
+        sentMsgId = None 
+        while ( sentMsgId is None and timeout > 0 ) :   
+            sentMsgId = self.accounts[xmppmessage.sender].sendMessage(xmppmessage)
+            if sentMsgId is None:
+                timeout -= 1
+                time.sleep(1.0)
+            
+	return sentMsgId
 
     def start(self):
         """
@@ -317,7 +376,7 @@ class Agent(object):
 
         @raise e:                    In case an error occurred, exception is raised
         """
-
+        q.logger.log( "Stopping agent" )
         self.disconnectAllAccounts()
         self._status = q.enumerators.AppStatusType.HALTED
 

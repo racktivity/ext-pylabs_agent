@@ -61,6 +61,7 @@ class XMPPClient(object):
         @param getPassword: callback method to reload the password. No params, returns password
         @type method 
         '''
+        q.logger.log( "Creating xmpp client %s %s" % (jid,anonymous))
         jidObj = xmpp.JID(jid)
         self.domain = jidObj.getDomain()
         self.username = jidObj.getNode()
@@ -75,19 +76,35 @@ class XMPPClient(object):
         self.autoreconnect = True
         self._bg_thr = None
         self.getPassword = getPassword
+        self._shuttingDown = False
+        
         
     def _retrying_connect(self) :
     
         tryCnt = 0.0
         backoffPeriod = 2.0
         backoffMax = 60.0
+ 
+        connected = False 
         
-        while ( self._connect() == False ) :
-            tryCnt += 1.0
-            q.logger.log( "Retrying connect for %s in %0.2f sec" % (self.jid, min( tryCnt*backoffPeriod, backoffMax ) ) )
-            time.sleep( min( tryCnt*backoffPeriod, backoffMax ) )
-
-        self._doConnect()
+        while ( not connected and not self.isShuttingDown() ):
+            try:
+                connected = self._connect()
+            except Exception, ex:
+                q.logger.log("Error while connecting (%s: '%s')" % (ex.__class__.__name__, ex) )
+            if not connected :
+                self._client = None
+                tryCnt += 1.0
+                q.logger.log( "Retrying connect for %s in %0.2f sec" % (self.jid, min( tryCnt*backoffPeriod, backoffMax ) ) )
+                maxSleep = min( tryCnt*backoffPeriod, backoffMax )
+                while maxSleep :
+                    if self.isShuttingDown() :
+                        return False
+                    maxSleep -= 1.0
+                    time.sleep( 1.0 )        
+        
+        if not self.isShuttingDown() :
+            self._doConnect()
         return True
     
     def connect(self, server):
@@ -128,10 +145,18 @@ class XMPPClient(object):
         tries = 0
 
         if self._client is None:
-            self._client = xmpp.Client(self.domain, port = self.port, debug = [])
-        
+            try:
+                self._client = xmpp.Client(self.domain, port = self.port, debug = [])
+                q.logger.log("Created client object")
+            except Exception,ex:
+                q.logger.log("Caught exception while creating xmmp client (%s: '%s')" % (ex.__class__.__name__,ex) )
+       
         result = self._client.connect((self.server, self.port))
-        while tries < self.NUMBER_OF_RETRIES and not result :
+       
+        q.logger.log("Connected client")
+        while tries < self.NUMBER_OF_RETRIES and not result  :
+            if (self.isShuttingDown() ):
+                return 
             result = self._client.connect((self.server, self.port))
             tries +=1
 
@@ -170,10 +195,7 @@ class XMPPClient(object):
 
         # Make sure we get notified if we get disconnected
         self._client.RegisterDisconnectHandler(self._handleDisconnect)
-
         q.logger.log("Connected to server [%s], trying with usersname [%s]" % (self.server, self.jid), 5)
-
-
         return True
 
     def _handleDisconnect(self):
@@ -191,11 +213,12 @@ class XMPPClient(object):
 
             # disable listener thread
             self._client._listen = False
-            while not self._client.connected:
-                # Reinitialize client
-                self._client = None
-                self._retrying_connect()
+            
+            self._client = None
+            self._retrying_connect()
 
+    def isShuttingDown(self):
+        return self._shuttingDown
 
     def _doConnect(self):
 
@@ -206,7 +229,7 @@ class XMPPClient(object):
 
             last_keepalive = time.time()
 
-            while client._listen:
+            while client._listen and not self.isShuttingDown() :
                 (i , _, _) = select.select(socketlist.keys(),[],[],1)
                 try:
                     for each in i:
@@ -236,7 +259,7 @@ class XMPPClient(object):
         # enable listener thread
         self._client._listen = True
         
-        if (self.autoreconnect ) :
+        if (self.autoreconnect and not self.isShuttingDown() ) :
             _listen( self._client )
         else :
             t = Thread(target=_listen, args=(self._client,))
@@ -279,15 +302,24 @@ class XMPPClient(object):
         @raise e:                    In case an error occurred, exception is raised
         """
 
+        q.logger.log( "Disconnecting client %s: %s" % ( self.jid,self.anonymous) )
         # Unregister autoconnect
-        self._client.UnregisterDisconnectHandler(self._handleDisconnect)
+        try :
+            self._client.UnregisterDisconnectHandler(self._handleDisconnect)
+        except Exception, ex:
+            q.logger.log( "Could not unregister disconnect handler: (%s : '%s')" % (ex.__class__.__name__,ex) )
 
+        self._shuttingDown = True
+        
         if self.status == 'NOT_CONNECTED':
             q.logger.log('Client is already not connected')
             return True
 
         q.logger.log("Stopping the xmpp client to %s at server: %s"%(self.jid, self.server), 5)
-        self._client.disconnect()
+        try:
+            self._client.disconnect()
+        except Exception, ex:
+            q.logger.log( "Exception while disconnecting (%s : '%s')" % (ex.__class__.__name__,ex) )
         self.status = 'NOT_CONNECTED'
         return True
 
