@@ -42,6 +42,9 @@ from pymonkey.InitBaseCore import q,i
 sys.path.append(q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver','services'))
 from agent_service.logtarget import AgentLogTarget
 
+agentlog = AgentLogTarget()
+q.logger.logTargetAdd(agentlog)
+
 import traceback, time, yaml
 import base64
 
