@@ -65,8 +65,18 @@
 #
 #actions[action]()
 
+import signal
+
+def ignore_signal(signum, frame):
+    pass
+
+signal.signal(signal.SIGRTMIN, ignore_signal)
+
 from pymonkey.InitBaseCore import q
 from agent import Agent
+
+import json
+import os
 
 import time
 
@@ -79,7 +89,28 @@ agentVarDir = q.system.fs.joinPaths(q.dirs.varDir, 'agent')
 if not q.system.fs.exists(agentVarDir):
     q.system.fs.createDir(agentVarDir)
 
-agent = Agent()
+
+
+agent = Agent()  
+
+
+
+
+def get_connection_info(signum, frame):
+    q.logger.log('Got signal %s' % signum, 2)
+    
+    try:
+        info_path = q.system.fs.joinPaths(q.dirs.tmpDir, 'agent_connection_info.json')
+        connection_info = agent.getConnectionInfo()
+        q.logger.log('Writing connection info %s to %s' % (connection_info, info_path), 5)
+        q.system.fs.writeFile(info_path, json.dumps(connection_info))
+    except Exception, ex:
+        q.logger.log('Failed writing connection info to %s!' % info_path, 2)
+
+signal.signal(signal.SIGRTMIN, get_connection_info)
+
+
+
 agent.start()
 
 accountActive = True

@@ -22,7 +22,7 @@ PyLabs agent manager module
 
 from pymonkey import i, q
 import time
-import signal
+import signal, json
 
 class AgentManager(object):
     '''
@@ -38,7 +38,7 @@ class AgentManager(object):
         self._agentRunnerPath = q.system.fs.joinPaths(q.dirs.appDir, 'agent', 'lib', 'agentrunner.py')
         self._agentCommand = '%s %s'%(self._pythonBinPath, self._agentRunnerPath)
         self._agentPidFile = q.system.fs.joinPaths(q.dirs.pidDir, 'agent.pid')
-        self._timeout = 5
+        self._timeout = 10
         self._agentVarDir = q.system.fs.joinPaths(q.dirs.varDir, 'agent')
         self._agentStdout = q.system.fs.joinPaths(self._agentVarDir, 'stdout')
         self._agentStderr = q.system.fs.joinPaths(self._agentVarDir, 'stderr')
@@ -100,6 +100,7 @@ class AgentManager(object):
         q.system.process.kill(agentPid, signal.SIGTERM)
         while timeout:
             if not q.system.process.isPidAlive(agentPid):
+                q.system.fs.remove(self._agentPidFile, True)
                 return True
             time.sleep(1)
             timeout -= 1
@@ -108,6 +109,7 @@ class AgentManager(object):
             q.console.echo('Failed to stop the agent in %s seconds, trying to kill the process abruptly '%self._timeout)
             q.system.process.kill(agentPid, signal.SIGKILL)
             time.sleep(1)
+            q.system.fs.remove(self._agentPidFile, True)
             return not q.system.process.isPidAlive(agentPid)
 
     def getStatus(self):
@@ -123,6 +125,41 @@ class AgentManager(object):
             return q.enumerators.AppStatusType.HALTED
         agentPid = int(open(self._agentPidFile, 'r').read())
         return q.enumerators.AppStatusType.RUNNING if q.system.process.isPidAlive(agentPid) else q.enumerators.AppStatusType.HALTED
+    
+    def getConnectionInfo(self):
+        
+        if self.getStatus() != q.enumerators.AppStatusType.RUNNING:
+            raise ValueError('Agent is not running')
+        
+        info_path = q.system.fs.joinPaths(q.dirs.tmpDir, 'agent_connection_info.json')
+        q.system.fs.remove(info_path, True)
+        
+        agentPid = int(open(self._agentPidFile, 'r').read())
+        timeout = self._timeout
+
+        # SIGRTMIN will dump connection info
+        q.system.process.kill(agentPid, signal.SIGRTMIN)
+        time.sleep(1)
+        
+        try:
+            while timeout:
+                if q.system.fs.exists(info_path):
+                    info = json.loads(q.system.fs.fileGetContents(info_path))
+                    q.system.fs.remove(info_path, True)
+                    return info
+                
+                time.sleep(1)
+                # Need to resend signal as signal may be ignored while pm is loading
+                q.system.process.kill(agentPid, signal.SIGRTMIN)
+                timeout -= 1
+        except Exception, ex:
+            q.system.fs.remove(info_path, True)
+            raise RuntimeError('Error retrieving connection info: %s '  % ex.message)     
+            
+        q.system.fs.remove(info_path, True)
+        raise RuntimeError('Failed to retrieve connection info!')
+        
+        
     
     
     def restart(self):

@@ -390,7 +390,22 @@ class Agent(object):
         @raise e:                    In case an error occurred, exception is raised
         """
         return self._status
-
+    
+    def getConnectionInfo(self):
+        
+        connection_info = {}
+        for jid, client in self.accounts.iteritems():
+            agent_info = {}
+            agent_info['jid'] = client.jid
+            agent_info['username'] = client.username
+            agent_info['domain'] = client.domain
+            agent_info['status'] = client.status
+            agent_info['anonymous'] = client.anonymous
+            agent_info['autoreconnect'] = client.autoreconnect
+            
+            connection_info[jid] = agent_info
+            
+        return connection_info
 
     def _onCommandReceived(self, xmppCommandMessage):
         """
