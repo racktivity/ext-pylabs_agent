@@ -158,8 +158,7 @@ class XMPPClient:
         c.addBootstrap(xmlstream.STREAM_ERROR_EVENT, self._end_stream)
 
         def _do_connect():
-            self.connector = SRVConnector(reactor,'xmpp-client' ,self.server, c)
-            self.connector.pickServer =  lambda: (self.server, 5222)
+            self.connector = reactor.connectTCP(self.server, 5222, c)
             self.connector.connect()
 
         reactor.callInThread(_do_connect)
