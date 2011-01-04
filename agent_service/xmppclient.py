@@ -50,11 +50,14 @@ class XMPPClient:
         ''' Stop the xmpp client '''
         if self.status == 'NOT_CONNECTED':
             raise RuntimeError('The XmppClient has not yet been started.')
-        
+
         q.logger.log("[XMPPCLIENT] Stopping xmpp client to " + self.username + "@" + self.server, 5)
 
-        self.factory.stopTrying() 
-        self.connector.disconnect()
+        self.connector.stopAfterDNS = 1
+        self.factory.stopTrying()
+
+        return self.connector.disconnect()
+
 
     def sendMessage(self, to, type, id, message=''):
         ''' Send a message
@@ -156,13 +159,14 @@ class XMPPClient:
         c.addBootstrap(xmlstream.INIT_FAILED_EVENT, self._init_failed)
         c.addBootstrap(xmlstream.STREAM_END_EVENT, self._end_stream)
         c.addBootstrap(xmlstream.STREAM_ERROR_EVENT, self._end_stream)
+
         self.factory = c
 
         def _do_connect():
             self.connector = reactor.connectTCP(self.server, 5222, c)
             self.connector.connect()
 
-        reactor.callInThread(_do_connect)
+        reactor.callLater(0, _do_connect)
 
     def _connected(self, xmlstream):
         self.status = 'CONNECTED'

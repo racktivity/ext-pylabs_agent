@@ -94,7 +94,7 @@ class Agent:
         return map(lambda x: x.pid, self.scriptexecutor._processManager.listRunningProcesses())
 
     def disconnect(self):
-        self.xmppclient.stop()
+        return self.xmppclient.stop()
 
     def _executeScript(self, fromm, jobguid, message):
         q.logger.log("[AGENT] Agent '" + self.agentguid + "' received script from '" + fromm + "' for job '" + jobguid + "'", 5)

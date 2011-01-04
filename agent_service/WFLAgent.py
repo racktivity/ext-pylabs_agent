@@ -131,4 +131,4 @@ class WFLAgent:
 
     @q.manage.applicationserver.service_close_handler
     def close_service(self):
-        self.__agent.disconnect()
+        return self.__agent.disconnect()
