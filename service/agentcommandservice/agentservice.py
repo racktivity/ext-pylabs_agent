@@ -18,8 +18,8 @@
 
 from pymonkey import q, i
 
-from agent_service.xmppclient import XMPPClient, XMPPResultMessage, XMPPCommandMessage
-from agent_service.taskcallbackmapper import TaskCallbackMapper
+from agentcommandservice.xmppclient import XMPPClient, XMPPResultMessage, XMPPCommandMessage
+from agentcommandservice.taskcallbackmapper import TaskCallbackMapper
 
 import time
 import re
@@ -29,10 +29,10 @@ class AgentService:
     def __init__(self):        
         
         #load configuration from the config file
-        configuration = q.config.getConfig('agent_service')
+        configuration = q.config.getConfig('agentcommandservice')
         
         if not 'main' in configuration:
-            raise RuntimeError('main section is not found in the agent_service configuration file')
+            raise RuntimeError('main section is not found in the agentcommandservice configuration file')
          
         self.xmppclient = XMPPClient('%s@%s' % (configuration['main']['agentname'], configuration['main']['domain']), configuration['main']['password'])
         self.xmppclient.connect(configuration['main']['server'])
