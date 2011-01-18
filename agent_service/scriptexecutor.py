@@ -1,7 +1,7 @@
 from pymonkey import q
 
 import sys, yaml, os
-from subprocess import Popen, PIPE
+from pymonkey.system.process import SafePopen as Popen
 from twisted.internet import reactor
 import base64
 
