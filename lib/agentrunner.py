@@ -65,11 +65,31 @@
 #
 #actions[action]()
 
+import json
+import logging
 import signal
 
-def ignore_signal(signum, frame):
-    pass
 
+
+def write_connection_info(path, info):
+    """
+    Write JSON serialized connection info to file
+    
+    Can't use pymonkey as it should work even before pymonkey is loaded 
+    """
+    logging.log(logging.INFO, 'Writing connection info "%s" to "%s"' % (info, path))
+    with open(path, 'w+') as f:
+        f.write(json.dumps(info))
+        logging.log(logging.INFO, 'Done writing connection info')
+        
+        
+def ignore_signal(signum, frame):
+    """
+    Write empty connection info
+    """
+    logging.log(logging.INFO, 'Got signal %s' % signum)
+    write_connection_info('/opt/qbase3/var/tmp/agent_connection_info.json', {})
+    
 signal.signal(signal.SIGRTMIN, ignore_signal)
 
 from pymonkey.InitBaseCore import q
@@ -89,16 +109,14 @@ agentVarDir = q.system.fs.joinPaths(q.dirs.varDir, 'agent')
 if not q.system.fs.exists(agentVarDir):
     q.system.fs.createDir(agentVarDir)
 
-
-
 agent = Agent()  
 
-
-
-
 def get_connection_info(signum, frame):
+    """
+    Write empty connection info
+    """
     q.logger.log('Got signal %s' % signum, 2)
-    
+       
     try:
         info_path = q.system.fs.joinPaths(q.dirs.tmpDir, 'agent_connection_info.json')
         connection_info = agent.getConnectionInfo()

@@ -137,9 +137,12 @@ class AgentManager(object):
         agentPid = int(open(self._agentPidFile, 'r').read())
         timeout = self._timeout
 
+        info = {}
+        
         # SIGRTMIN will dump connection info
         q.system.process.kill(agentPid, signal.SIGRTMIN)
         time.sleep(1)
+        
         
         try:
             while timeout:
@@ -157,10 +160,9 @@ class AgentManager(object):
             raise RuntimeError('Error retrieving connection info: %s '  % ex.message)     
             
         q.system.fs.remove(info_path, True)
-        raise RuntimeError('Failed to retrieve connection info!')
+        q.logger.log('Failed to retrieve connection info',  1)
         
-        
-    
+        return info
     
     def restart(self):
         """

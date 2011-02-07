@@ -158,7 +158,7 @@ class Agent(object):
 
 
         sections = q.config.getConfig('agent')
-        self.timeout = int(sections['main'].get('registeration_timeout', 10))
+        self.timeout = int(sections['main'].get('registration_timeout', 30))
 
 
         accountSections =  q.config.getConfig('agent_accounts')#filter(lambda x: x.startswith('account_'), sections)
