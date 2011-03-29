@@ -1,7 +1,7 @@
 import os, xmlrpclib
 import base64
-from pymonkey import q
-from pymonkey.logging.LogObject import LogObject
+from pylabs import q
+from pylabs.logging.LogObject import LogObject
 
 class AgentLogTarget(object):
     def __init__(self, serverIp='127.0.0.1', serverPort='8888', serverPath = '/', maxVerbosityLevel=1):

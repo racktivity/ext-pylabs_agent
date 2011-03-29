@@ -1,5 +1,5 @@
 import sys
-from pymonkey.InitBaseCore import q,i
+from pylabs.InitBaseCore import q,i
 
 sys.path.append(q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver','services'))
 from agent_service.logtarget import AgentLogTarget

@@ -1,4 +1,4 @@
-from pymonkey import q
+from pylabs import q
 
 from twisted.words.protocols.jabber import xmlstream, client, jid
 from twisted.words.xish import domish

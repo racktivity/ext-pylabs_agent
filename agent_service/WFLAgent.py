@@ -1,4 +1,4 @@
-from pymonkey import q, i
+from pylabs import q, i
 from agent_service.agent import Agent
 import base64
 import binascii
