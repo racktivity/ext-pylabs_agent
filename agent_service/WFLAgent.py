@@ -85,12 +85,7 @@ config = AgentConfig()
 
 class WFLAgent:
     def __init__(self, path=None):
-        if not path:
-            path = q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver', 'services', 'agent_service', 'tasklets')
-
-        if not q.system.fs.exists(path):q.system.fs.createDir(path)
-        self.taskletEngine = q.getTaskletEngine(path)
-
+        
         def _onSubscribed():
             config.subscribed = True
             config.updateConfig()
@@ -99,6 +94,13 @@ class WFLAgent:
 
 
     if config.cronEnabled:
+        if not path:
+            path = q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver', 'services', 'agent_service', 'tasklets')
+        
+        if not q.system.fs.exists(path):
+            q.system.fs.createDir(path)
+        self.taskletEngine = q.getTaskletEngine(path)
+
         @q.manage.applicationserver.cronjob(config.interval)
         def run_scheduled(self):
             params = dict()
