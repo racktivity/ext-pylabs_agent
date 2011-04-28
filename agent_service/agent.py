@@ -1,4 +1,4 @@
-from pylabs import q, i
+from pymonkey import q, i
 
 import base64
 import zlib
