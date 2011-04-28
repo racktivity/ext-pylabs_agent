@@ -1,4 +1,4 @@
-from pymonkey import q, i
+from pylabs import q, i
 
 import base64
 import zlib
@@ -15,43 +15,23 @@ class Agent:
         self.agentcontrollerguid = agentcontrollerguid
         self.subscribedCallback = subscribedCallback
         self.max_content_length = max_content_length
-        
-        self.agentguid = agentguid
-        self.xmppServer = xmppServer
-        self.password = password
-        self.hostname = hostname
-        
-        self.xmppclient = None
-        self.__reconnect()
 
-        self.scriptexecutor = ScriptExecutor()
-        self.scriptexecutor.setScriptDoneCallback(self._script_done)
-        self.scriptexecutor.setScriptDiedCallback(self._script_died)
-    
-    
-    def __reconnect(self):
-        """
-        Disconnect from the server and try to reconnect
-        """
-        if self.xmppclient:
-            self.disconnect()
-        self.xmppclient = XMPPClient(self.agentguid, self.xmppServer, self.password, self.hostname)
+        self.xmppclient = XMPPClient(agentguid, xmppServer, password, hostname)
         self.xmppclient.setMessageReceivedCallback(self._message_received)
         self.xmppclient.setPresenceReceivedCallback(self._presence_received)
-        self.xmppclient.setDisconnectedCallback(self.__on_disconnected)
-        
-        if self.subscribedCallback <> None:
+
+        if subscribedCallback <> None:
             def _sendSubscribe():
                 self.xmppclient.sendPresence(to=self.agentcontrollerguid, type='subscribe')
                 self.xmppclient.setConnectedCallback(None)
 
             self.xmppclient.setConnectedCallback(_sendSubscribe)
-            
+
         self.xmppclient.start()
-        
-    def __on_disconnected(self, reason):
-        q.logger.log("[AGENT] Agent '" + self.agentguid + "' disconnected from server. Reason: %s, trying to reconnect"%reason , 5)
-        self.__reconnect()
+
+        self.scriptexecutor = ScriptExecutor()
+        self.scriptexecutor.setScriptDoneCallback(self._script_done)
+        self.scriptexecutor.setScriptDiedCallback(self._script_died)
 
     def keep_alive(self):
         self.xmppclient.keep_alive()
@@ -99,12 +79,8 @@ class Agent:
             type = 'agent_error'
             content = {'erroroutput': 'Message content size (%s) is greater than max allowed size (%s)' % (len(content), self.max_content_length), 'errorcode': '-1'}
             content = base64.encodestring(zlib.compress(yaml.dump(content)))
-        try:
-            self.xmppclient.sendMessage(fromm, type, id, content)
-        except Exception, ex:
-            q.logger.log("[AGENT] Agent '" + self.agentguid + "' failed to send message '" + content + "' .Reason: '" + str(ex) + "' Trying to reconnect and resend the message")
-            self.__reconnect()
-            self.xmppclient.sendMessage(fromm, type, id, content)
+            
+        self.xmppclient.sendMessage(fromm, type, id, content)
 
     def log(self, pid, level, log_message):
         job = self.scriptexecutor.getJob(pid)
