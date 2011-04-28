@@ -26,12 +26,27 @@ class Agent:
                 self.xmppclient.setConnectedCallback(None)
 
             self.xmppclient.setConnectedCallback(_sendSubscribe)
-
-        self.xmppclient.start()
+        
+        self.connect()
+        
 
         self.scriptexecutor = ScriptExecutor()
         self.scriptexecutor.setScriptDoneCallback(self._script_done)
         self.scriptexecutor.setScriptDiedCallback(self._script_died)
+    
+    
+    def getStatus(self):
+        """
+        Retrieves the status of the agent
+        """
+        return self.xmppclient.getStatus()
+        
+    
+    def connect(self):
+        """
+        Start connection to the xmpp-server 
+        """
+        self.xmppclient.start()
 
     def keep_alive(self):
         self.xmppclient.keep_alive()

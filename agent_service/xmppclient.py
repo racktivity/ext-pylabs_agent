@@ -35,6 +35,12 @@ class XMPPClient:
 
         self.connector = None
         self.xmlstream = None
+    
+    def getStatus(self):
+        """
+        Retreives the current status of the client
+        """
+        return self.status
 
     def start(self):
         ''' Start the xmpp client, opens the connection to the server '''
@@ -251,7 +257,7 @@ class XMPPClient:
         self._disconnected('Connection timed out')
 
     def _disconnected(self, reason):
-        self.status = 'DISCONNECTED'
+        self.status = 'NOT_CONNECTED'
         q.logger.log("[XMPPCLIENT] Disconnected: " + reason, 4)
 
         if self.disconnectedCallback:

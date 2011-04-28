@@ -3,6 +3,7 @@ from agent_service.agent import Agent
 import base64
 import binascii
 
+
 class AgentConfig:
     def __init__(self):
         """
@@ -132,3 +133,30 @@ class WFLAgent:
     @q.manage.applicationserver.service_close_handler
     def close_service(self):
         return self.__agent.disconnect()
+    
+    
+    @q.manage.applicationserver.expose
+    def is_connected(self):
+        """
+        Check if the agent is currently connected to the xmpp server
+        """
+        return self.__agent.getStatus() == 'RUNNING'
+    
+    
+    @q.manage.applicationserver.expose
+    def disconnect(self):
+        """
+        Asks the client to close connection to the Agentcontroller service, use is_connected method to make sure if the agent is still connected 
+        """
+        return self.__agent.disconnect()
+        
+    
+    
+    @q.manage.applicationserver.expose
+    def connect(self):
+        """
+        Asks the client start a connection to the Agentcontroller service, use is_connected method to make sure if the agent is still disconnected
+        """
+        return self.__agent.connect()
+        
+        
