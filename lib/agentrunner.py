@@ -100,7 +100,7 @@ import os
 
 import time
 
-q.application.appname = 'agent'
+q.application.appname = 'agentv4'
 q.application.start()
 
 SLEEP_INTERVAL = 2

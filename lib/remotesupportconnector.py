@@ -68,6 +68,9 @@ def save_proxy_info(proxies):
     '''
     path = q.system.fs.joinPaths(q.dirs.cfgDir, 'remotesupport.cfg')
     
+    if q.system.fs.exists(path):
+        q.system.fs.removeFile(path)
+        
     cfg = q.tools.inifile.new(path)
     
     for service, proxyinfo in proxies.iteritems():
@@ -76,11 +79,6 @@ def save_proxy_info(proxies):
         for k, v in proxyinfo.iteritems():
             cfg.addParam(service, k, v)
             
-            
-    
-        
-    
-    
     
 def disconnect():
     global webservice

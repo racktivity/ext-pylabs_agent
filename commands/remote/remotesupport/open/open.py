@@ -41,6 +41,8 @@ def main(q, i, params, tags):
     # Check if we're not connected yet
     pidfile = q.system.fs.joinPaths(q.dirs.pidDir, 'remotesupport.pid')
     if q.system.fs.isFile(pidfile) and q.system.process.isPidAlive(int(q.system.fs.fileGetContents(pidfile))):
+        params['returncode'] = -1
+        params['returnvalue'] = 'Remote support already in use'        
         raise RuntimeError('Remote support already in use')
     
     # Cleanup
