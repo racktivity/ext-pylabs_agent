@@ -32,6 +32,11 @@ import signal
 from pymonkey.InitBaseCore import q
 from nocws import RemoteSupportWSClient
 
+global client
+global webservice
+
+client      = None
+webservice  = None
 
 
 def get_service_host():
@@ -70,7 +75,7 @@ def save_proxy_info(proxies):
     
     if q.system.fs.exists(path):
         q.system.fs.removeFile(path)
-        
+
     cfg = q.tools.inifile.new(path)
     
     for service, proxyinfo in proxies.iteritems():
@@ -78,8 +83,7 @@ def save_proxy_info(proxies):
         
         for k, v in proxyinfo.iteritems():
             cfg.addParam(service, k, v)
-            
-    
+
 def disconnect():
     global webservice
     global client
@@ -87,9 +91,22 @@ def disconnect():
     # @todo: check if this is sufficient when we stop the remote connection from the agent
     webservice.remove_all_tunnels_for_agent(domainname, agentid)
     client.close()
-    
+
 # Read parameters
 server, login, password, serverport, remotehost, domainname, agentid = sys.argv[1:]
+
+client = q.remote.system.connect(server, login, password, port=int(serverport))
+
+# Get access to the NOC webservices
+# This will make the NOC weservices availble on the local machine
+# We need it to determine on which SSH host we landed and 
+# to notify the NOC we're in
+
+q.logger.log('Forwarding NOC webservice to localhost')
+client.portforward.forwardLocalPort(8000, 'remotewebservice', 80, True)
+
+# Get access to the remote support WS
+webservice = RemoteSupportWSClient('127.0.0.1', 8000)
 
 # Prepare for end of session
 atexit.register(disconnect)
@@ -106,23 +123,6 @@ services = {
 }
 
 proxies = dict.fromkeys(services.keys())  
-
-# G
-global client
-global webservice
-
-client = q.remote.system.connect(server, login, password, port=int(serverport))
-
-# Get access to the NOC webservices
-# This will make the NOC weservices availble on the local machine
-# We need it to determine on which SSH host we landed and 
-# to notify the NOC we're in
-
-q.logger.log('Forwarding NOC webservice to localhost')
-client.portforward.forwardLocalPort(8000, 'remotewebservice', 80, True)
-
-# Get access to the remote support WS
-webservice = RemoteSupportWSClient('127.0.0.1', 8000)
 
 # Get the ip of the SSH host on which we landed
 ssh_host = webservice.what_is_my_ip()
@@ -146,7 +146,7 @@ for service in services.keys():
         proxies[service] = {'localip': local_host, 
                             'localport': services[service],
                             'remotesship': ssh_host,
-                            'remotesshport': proxy_port,                           
+                            'remotesshport': proxy_port,
                            }
         
     except Exception, ex:
