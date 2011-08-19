@@ -138,7 +138,8 @@ class Agent(object):
                 
                 tags = q.base.tags.getObject()
                 tags.tagSet('login', jid )
-                q.errorconditionhandler.raiseCritical( msg, typeid='SSO-AGENT-0002',tags=tags.tagstring,escalate=True)
+                tags.tagSet('typeid', 'SSO-AGENT-0002')
+                q.sso.events.raiseCritical( msg, typeid='SSO-AGENT-0002',tags=tags.tagstring,escalate=True)
                 
         if filter(lambda item: item, finished.values()):
             self.reloadConfig(registerAnonymous=False)

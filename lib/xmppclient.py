@@ -174,6 +174,7 @@ class XMPPClient(object):
             tags = q.base.tags.getObject()
             tags.tagSet('login', self.jid )
             tags.tagSet('server', self.server)
+            tags.tagSet('typeid', 'SSO-AGENT-0001')
             if self.getPassword is not None:
                 try:
                     self.password = self.getPassword()
@@ -181,7 +182,7 @@ class XMPPClient(object):
                     q.logger.log("Failed to reload password (%s: %s)" % (ex.__class__.__name__, ex) )
                 
             try :
-                q.errorconditionhandler.raiseWarning( msg, typeid='SSO-AGENT-0001',tags=tags.tagstring,escalate=True)
+                q.sso.events.raiseWarning( msg, typeid='SSO-AGENT-0001',tags=tags.tagstring,escalate=True)
             except:
                 q.logger.log(msg, 4)
             self._client = None
