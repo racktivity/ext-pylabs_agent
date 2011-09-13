@@ -23,6 +23,7 @@ import xmpp, select
 from threading import Thread
 import sys, traceback
 import time, random
+from xmpp.protocol import NodeProcessed 
 
 BEGIN_COMMAND = '!'
 END_COMMAND = '!'
@@ -193,6 +194,7 @@ class XMPPClient(object):
         self._client.sendInitPresence()
         self._client.RegisterHandler('message', self._messageRecieved)
         self._client.RegisterHandler('presence', self._presenceReceived)
+        self._client.RegisterHandler(name='iq', handler=self._pingReceived, typ='get', ns='urn:xmpp:ping')
 
         # Make sure we get notified if we get disconnected
         self._client.RegisterDisconnectHandler(self._handleDisconnect)
@@ -272,6 +274,17 @@ class XMPPClient(object):
         fromm = message.getFrom().getStripped() or ''
 
         q.logger.log("Presence received from %s of type %s"%(fromm, type_), 5)
+
+    def _pingReceived(self, conn, message):
+        type_ = message.getType()
+        fromm = message.getFrom().getStripped() or ''
+        tom = message.getTo().getStripped() or ''
+        idm = message.getID() or ''
+        resource = message.getTo().getResource()
+        reply = xmpp.Iq(typ = 'result', to = fromm, frm = "%s/%s"%(tom,resource), attrs = {'id': idm }, xmlns='')
+        self._client.send(reply)
+        q.logger.log("PING received from %s of type %s"%(fromm, type_), 5)
+        raise NodeProcessed 
 
     def _messageRecieved(self, conn, message):
         sender = message.getFrom().getStripped()
