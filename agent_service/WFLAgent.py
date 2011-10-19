@@ -1,5 +1,6 @@
 from pymonkey import q, i
 from agent_service.agent import Agent
+from agent_service.TaskletEngine import TaskletEngine
 import base64
 import binascii
 
@@ -89,7 +90,7 @@ class WFLAgent:
             path = q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver', 'services', 'agent_service', 'tasklets')
 
         if not q.system.fs.exists(path):q.system.fs.createDir(path)
-        self.taskletEngine = q.getTaskletEngine(path)
+        self.taskletEngine = TaskletEngine(path)
 
         def _onSubscribed():
             config.subscribed = True
