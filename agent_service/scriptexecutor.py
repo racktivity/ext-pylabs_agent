@@ -33,7 +33,7 @@ class Script:
             #### SCRIPT ####
             try:
                 # Run the script using the params
-                code = compile(self.script, "<string>", "exec")
+                code = compile(self.script.replace("\n\r", "\n"), "<string>", "exec")
                 local_ns = { "params": self.params, "q": q, "i": i }
                 global_ns = local_ns
 
@@ -114,8 +114,8 @@ class ScriptExecutor:
 
     def _checkProgress(self):
         for pid in self._processManager.listRunningProcesses():
-            _, proc_error_code = os.waitpid(pid, 0)
-            if proc_error_code != None:
+            retpid, proc_error_code = os.waitpid(pid, os.WNOHANG)
+            if proc_error_code != None and retpid == pid:
                 (agentcontrollerguid, jobguid) = self._processManager.getJob(pid)
 
                 errorOutput = None
