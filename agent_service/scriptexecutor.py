@@ -15,40 +15,40 @@ class Script:
 
     def run(self):
         # redirect stdout & stderr to error_path
-        output = open(self.error_path, "wb")
-        sys.stdout = output
-        sys.stderr = output
+        with open(self.error_path, "wb") as output:
+            sys.stdout = output
+            sys.stderr = output
 
-        sys.path.append(q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver','services'))
-        from agent_service.logtarget import AgentLogTarget
+            sys.path.append(q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver','services'))
+            from agent_service.logtarget import AgentLogTarget
 
-        agentlog = AgentLogTarget()
-        q.logger.logTargetAdd(agentlog)
+            agentlog = AgentLogTarget()
+            q.logger.logTargetAdd(agentlog)
 
-        ##temporary fix SSOBF-217
-        os.umask(022)
+            ##temporary fix SSOBF-217
+            os.umask(022)
 
-        errormessage = None
+            errormessage = None
 
-        #### SCRIPT ####
-        try:
-            # Run the script using the params
-            code = compile(self.script, "<string>", "exec")
-            local_ns = { "params": self.params, "q": q, "i": i }
-            global_ns = local_ns
+            #### SCRIPT ####
+            try:
+                # Run the script using the params
+                code = compile(self.script, "<string>", "exec")
+                local_ns = { "params": self.params, "q": q, "i": i }
+                global_ns = local_ns
 
-            exec(code, global_ns, local_ns)
-        except:
-            errormessage = traceback.format_exc()
-        #### /SCRIPT ####
+                exec(code, global_ns, local_ns)
+            except:
+                errormessage = traceback.format_exc()
+            #### /SCRIPT ####
 
-        # Construct the return message
-        returnobject = { "params": self.params }
-        if errormessage:
-            returnobject["errormessage"] = errormessage
+            # Construct the return message
+            returnobject = { "params": self.params }
+            if errormessage:
+                returnobject["errormessage"] = errormessage
 
-        # Write the result to file
-        q.system.fs.writeFile(self.result_path, yaml.dump(returnobject))
+            # Write the result to file
+            q.system.fs.writeFile(self.result_path, yaml.dump(returnobject))
 
         os._exit(0)
 
