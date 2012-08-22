@@ -1,11 +1,57 @@
-from pylabs import q
+from pylabs import q, i
 
-import sys, yaml, os
-from pylabs.system.process import SafePopen as Popen
+import sys, yaml, os, signal, time, traceback
 from twisted.internet import reactor
 import base64
 
 PYTHON_BIN =  sys.executable
+
+class Script:
+    def __init__(self, script, params, result_path, error_path):
+        self.script = script
+        self.params = params
+        self.result_path = result_path
+        self.error_path = error_path
+
+    def run(self):
+        # redirect stdout & stderr to error_path
+        output = open(self.error_path, "wb")
+        sys.stdout = output
+        sys.stderr = output
+
+        sys.path.append(q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver','services'))
+        from agent_service.logtarget import AgentLogTarget
+
+        agentlog = AgentLogTarget()
+        q.logger.logTargetAdd(agentlog)
+
+        ##temporary fix SSOBF-217
+        os.umask(022)
+
+        errormessage = None
+
+        #### SCRIPT ####
+        try:
+            # Run the script using the params
+            code = compile(self.script, "<string>", "exec")
+            local_ns = { "params": self.params, "q": q, "i": i }
+            global_ns = local_ns
+
+            exec(code, global_ns, local_ns)
+        except:
+            errormessage = traceback.format_exc()
+        #### /SCRIPT ####
+
+        # Construct the return message
+        returnobject = { "params": self.params }
+        if errormessage:
+            returnobject["errormessage"] = errormessage
+
+        # Write the result to file
+        q.system.fs.writeFile(self.result_path, yaml.dump(returnobject))
+
+        os._exit(0)
+
 
 class ScriptExecutor:
 
@@ -14,7 +60,7 @@ class ScriptExecutor:
         self.scriptDiedCallback = None
         self._processManager = ProcessManager()
         self._checkProgress()
-        
+
         script_path = q.system.fs.joinPaths(q.dirs.tmpDir, 'rscripts')
         if not q.system.fs.exists(script_path):
             q.system.fs.createDir(script_path)
@@ -30,76 +76,36 @@ class ScriptExecutor:
             q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + jobguid + "' already exists: skipping the job", 3)
         else:
             script = base64.decodestring(script)
-            p = str(params)
-            
+
             result_path = self._getScriptResultPath(jobguid)
-            error_path  = result_path.replace('.result', '.error') 
-            
-            script_content = \
-            """import sys
-from pylabs.InitBaseCore import q,i
+            error_path  = result_path.replace('.result', '.error')
 
-sys.path.append(q.system.fs.joinPaths(q.dirs.appDir, 'applicationserver','services'))
-from agent_service.logtarget import AgentLogTarget
-
-agentlog = AgentLogTarget()
-q.logger.logTargetAdd(agentlog)
-
-import traceback, time, yaml
-import base64
-
-##temporary fix SSOBF-217
-import os
-os.umask(022)
-
-#### PARAMETERS ####
-params = %(params)s
-#### /PARAMETERS ####
-
-errormessage = None
-
-#### SCRIPT ####
-%(script)s
-#### /SCRIPT ####
-
-# Construct the return message
-returnobject = {"params":params}
-if errormessage:
-    returnobject["errormessage"] = errormessage
-
-# Write the result to file
-result_file = '%(result_path)s'
-
-q.system.fs.writeFile(result_file, yaml.dump(returnobject))
-
-sys.exit(0)           
-""" % {'params': p, 'script': script, 'result_path': result_path}
-            
-            script_path = self._getScriptPath(jobguid)
-            
-            q.system.fs.writeFile(script_path, script_content)
-           
-            with open(error_path, "wb") as out: 
-                proc = Popen([PYTHON_BIN, script_path], stdout=out, stdin=None, stderr=out, close_fds=True)
-            self._processManager.addProcess(proc, fromm, jobguid)
+            pid = os.fork()
+            if pid == 0:
+                #child process
+                s = Script(script, params, result_path, error_path)
+                s.run()
+            else:
+                #parent process
+                self._processManager.addProcess(pid, fromm, jobguid)
 
     def stop(self, fromm, jobguid):
         if self._processManager.hasJob(fromm, jobguid):
-            proc = self._processManager.getProcess(fromm, jobguid)
-            q.system.process.kill(proc.pid, signal.SIGSTOP)
+            pid = self._processManager.getProcess(fromm, jobguid)
+            q.system.process.kill(pid, signal.SIGSTOP)
         else:
             q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + jobguid + "' does not exist: cannot stop the job", 3)
 
     def kill(self, fromm, jobguid):
         if self._processManager.hasJob(fromm, jobguid):
-            proc = self._processManager.getProcess(fromm, jobguid)
-            q.system.process.kill(proc.pid)
+            pid = self._processManager.getProcess(fromm, jobguid)
+            q.system.process.kill(pid)
         else:
             q.logger.log("[SCRIPTEXECUTOR] Error: job from '" + fromm + "' with id '" + jobguid + "' does not exist: cannot kill the job", 3)
 
     def getJob(self, pid):
         return self._processManager.getJob(pid)
-    
+
     def _getScriptPath(self, jobguid):
         return q.system.fs.joinPaths(q.dirs.tmpDir, 'rscripts', '%s.rscript' % jobguid)
 
@@ -107,24 +113,24 @@ sys.exit(0)
         return q.system.fs.joinPaths(q.dirs.tmpDir, 'rscripts', '%s.result' % jobguid)
 
     def _checkProgress(self):
-        for proc in self._processManager.listRunningProcesses():
-            proc_error_code = proc.poll()
-            if proc_error_code <> None:
-                (agentcontrollerguid, jobguid) = self._processManager.getJob(proc.pid)
-               
+        for pid in self._processManager.listRunningProcesses():
+            _, proc_error_code = os.waitpid(pid, 0)
+            if proc_error_code != None:
+                (agentcontrollerguid, jobguid) = self._processManager.getJob(pid)
+
                 errorOutput = None
- 
+
                 result_path = self._getScriptResultPath(jobguid)
                 error_path  = result_path.replace('.result', '.error')
 
-                if not q.system.fs.exists(result_path) or proc_error_code <> 0:
+                if not q.system.fs.exists(result_path) or proc_error_code != 0:
                     errorOutput = "RECEIVED WRONG ERROR CODE FROM WRAPPER: \n"
                     if q.system.fs.exists(error_path):
                         error_output = q.system.fs.fileGetContents(error_path)
                         errorOutput = '\n'.join([errorOutput, error_output])
                 else:
                     output = q.system.fs.fileGetContents(result_path)
-                    
+
                     try:
                         output_object = yaml.load(output)
                     except:
@@ -136,17 +142,17 @@ sys.exit(0)
                             params = output_object['params']
                             self.scriptDoneCallback and self.scriptDoneCallback(agentcontrollerguid, jobguid, params)
 
-                if errorOutput <> None:
+                if errorOutput != None:
                     self.scriptDiedCallback and self.scriptDiedCallback(agentcontrollerguid, jobguid, proc_error_code, errorOutput)
 
-                self._processManager.processStopped(proc)
-                reactor.callLater(2, self._processManager.removeProcess, proc) #Keep it alive for 2 seconds in case logging comes late.
-                
+                self._processManager.processStopped(pid)
+                reactor.callLater(2, self._processManager.removeProcess, pid) #Keep it alive for 2 seconds in case logging comes late.
+
                 script_path = self._getScriptPath(jobguid)
-                
+
                 q.system.fs.remove(script_path, onlyIfExists=True)
                 q.system.fs.remove(result_path, onlyIfExists=True)
-                q.system.fs.remove(error_path, onlyIfExists=True)   
+                q.system.fs.remove(error_path, onlyIfExists=True)
 
         reactor.callLater(0.1, self._checkProgress)
 
@@ -161,23 +167,23 @@ class ProcessManager:
         self.__pidMapping = {}
         self.__jobMapping = {}
 
-    def addProcess(self, proc, fromm, jobguid):
-        self.__runningProcesses.append(proc)
-        procInfo = (proc, fromm, jobguid)
-        self.__pidMapping[proc.pid] = procInfo
+    def addProcess(self, pid, fromm, jobguid):
+        self.__runningProcesses.append(pid)
+        procInfo = (pid, fromm, jobguid)
+        self.__pidMapping[pid] = procInfo
         self.__jobMapping[self.__getJobId(fromm, jobguid)] = procInfo
 
-    def processStopped(self, proc):
+    def processStopped(self, pid):
         '''
         The process has stopped: remove it from the process list, but keep the mapping (in case a log comes in late).
         '''
-        self.__runningProcesses.remove(proc)
+        self.__runningProcesses.remove(pid)
 
-    def removeProcess(self, proc):
+    def removeProcess(self, pid):
         '''
         Remove the process completely: remove the mapping.
         '''
-        procInfo = self.__pidMapping.pop(proc.pid)
+        procInfo = self.__pidMapping.pop(pid)
         self.__jobMapping.pop(self.__getJobId(procInfo[1], procInfo[2]))
 
     def listRunningProcesses(self):
@@ -190,10 +196,10 @@ class ProcessManager:
         return self.__jobMapping.get(self.__getJobId(fromm, jobguid))[0]
 
     def getJob(self, pid):
-        if self.__pidMapping.get(pid) <> None:
+        if self.__pidMapping.get(pid) != None:
             return self.__pidMapping.get(pid)[1:]
         else:
             return None
 
     def __getJobId(self, fromm, jobguid):
-        return fromm + '@' + jobguid;
+        return fromm + '@' + jobguid
