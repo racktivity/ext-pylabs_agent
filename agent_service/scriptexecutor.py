@@ -33,7 +33,7 @@ class Script:
             #### SCRIPT ####
             try:
                 # Run the script using the params
-                code = compile(self.script.replace("\n\r", "\n"), "<string>", "exec")
+                code = compile(self.script.replace("\r\n", "\n"), "<string>", "exec")
                 local_ns = { "params": self.params, "q": q, "i": i }
                 global_ns = local_ns
 
