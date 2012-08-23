@@ -25,7 +25,7 @@ class XMPPClient:
         self.timeOut = timeOut
         self.hostname = hostname
         self.xmpp_user = None
-        
+
         self.status = 'NOT_CONNECTED'
 
         self.messageReceivedCallback = None
@@ -164,7 +164,8 @@ class XMPPClient:
 
         def _do_connect():
             self.connector = reactor.connectTCP(self.server, 5222, c)
-            self.connector.connect()
+            if self.connector.state == "disconnected":
+                self.connector.connect()
 
         reactor.callLater(0, _do_connect)
 
@@ -217,7 +218,7 @@ class XMPPClient:
         fromm = elem.getAttribute('from').split("@")[0]
         type = elem.getAttribute('type')
         id = elem.getAttribute('id')
-        
+
         if elem.children and elem.children[0].children:
             message = str(elem.children[0].children[0])
         else:
@@ -227,18 +228,18 @@ class XMPPClient:
 
         if self.messageReceivedCallback:
             self.messageReceivedCallback(fromm, type, id, message)
-        
+
     def _error_received(self, failure):
-        import inspect      
-        
+        import inspect
+
         q.logger.log("[XMPPCLIENT] Error received: %s" % failure.getErrorMessage(), 1)
-        
+
         try:
-            q.errorconditionhandler.raiseCritical('Agent XMPP error: %s' % failure.getErrorMessage(), escalate=True)            
+            q.errorconditionhandler.raiseCritical('Agent XMPP error: %s' % failure.getErrorMessage(), escalate=True)
         except:
             pass
-        
-        
+
+
 
     def _init_failed(self, failure):
         self._disconnected('Init failed ' + str(failure))

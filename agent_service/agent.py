@@ -1,9 +1,8 @@
-from pylabs import q, i
+from pylabs import q
 
 import base64
 import zlib
 import yaml
-import random
 
 from agent_service.xmppclient import XMPPClient
 from agent_service.scriptexecutor import ScriptExecutor
@@ -20,7 +19,7 @@ class Agent:
         self.xmppclient.setMessageReceivedCallback(self._message_received)
         self.xmppclient.setPresenceReceivedCallback(self._presence_received)
 
-        if subscribedCallback <> None:
+        if subscribedCallback != None:
             def _sendSubscribe():
                 self.xmppclient.sendPresence(to=self.agentcontrollerguid, type='subscribe')
                 self.xmppclient.setConnectedCallback(None)
@@ -37,7 +36,7 @@ class Agent:
         self.xmppclient.keep_alive()
 
     def _message_received(self, fromm, type, id, message):
-                
+
         if fromm == self.agentcontrollerguid:
             if type == 'start':
                 message = zlib.decompress(base64.decodestring(message))
@@ -70,16 +69,16 @@ class Agent:
 
     def _script_died(self, fromm, jobguid, errorcode, erroroutput):
         self._sendMessage(fromm, 'agent_error', jobguid, yaml.dump({'errorcode':errorcode, 'erroroutput':erroroutput}))
-        
+
     def _sendMessage(self, fromm, type, id, message):
-        
+
         content = base64.encodestring(zlib.compress(message))
-        
+
         if len(content) > self.max_content_length:
             type = 'agent_error'
             content = {'erroroutput': 'Message content size (%s) is greater than max allowed size (%s)' % (len(content), self.max_content_length), 'errorcode': '-1'}
             content = base64.encodestring(zlib.compress(yaml.dump(content)))
-            
+
         self.xmppclient.sendMessage(fromm, type, id, content)
 
     def log(self, pid, level, log_message):
